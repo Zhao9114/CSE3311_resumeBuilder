@@ -1,4 +1,9 @@
-import type { Resume, ResumeBlock } from '../../types'
+import {
+  SIDEBAR_SECTION_TYPES,
+  templateMeta,
+  type Resume,
+  type ResumeBlock,
+} from '../../types'
 
 /** Renders one block's body. Narrowed on `type`, so `data` is typed per case. */
 function SectionBody({ block }: { block: ResumeBlock }) {
@@ -97,18 +102,32 @@ interface ResumePaperProps {
   resume: Resume
 }
 
-/** The printable resume. Renders enabled blocks in array order. */
+function Section({ block }: { block: ResumeBlock }) {
+  return (
+    <section className="r-section">
+      <h2 className="r-section-title">{block.label}</h2>
+      <SectionBody block={block} />
+    </section>
+  )
+}
+
+/**
+ * The printable resume. Renders enabled blocks in array order, styled by the
+ * resume's template. The Sidebar template splits the same blocks across two
+ * columns; every other template renders one column.
+ */
 export default function ResumePaper({ resume }: ResumePaperProps) {
-  const { profile, blocks } = resume
+  const { profile, blocks, templateId } = resume
+  const meta = templateMeta(templateId)
   const visible = blocks.filter((b) => b.enabled)
   const contact = [profile.email, profile.phone, profile.location, profile.links]
     .filter(Boolean)
 
-  return (
-    <div className="paper">
+  const header = (
+    <header className="r-header">
       <h1 className="r-name">{profile.name}</h1>
       {profile.title && <div className="r-title">{profile.title}</div>}
-      {contact.length > 0 && (
+      {!meta.twoColumn && contact.length > 0 && (
         <p className="r-contact">
           {contact.map((part, i) => (
             <span key={i}>
@@ -118,19 +137,56 @@ export default function ResumePaper({ resume }: ResumePaperProps) {
           ))}
         </p>
       )}
+    </header>
+  )
 
-      {visible.length === 0 ? (
-        <p className="r-summary">
-          No sections are visible yet. Add one, or switch a section back on.
-        </p>
-      ) : (
-        visible.map((block) => (
-          <section className="r-section" key={block.id}>
-            <h2 className="r-section-title">{block.label}</h2>
-            <SectionBody block={block} />
-          </section>
-        ))
-      )}
+  const empty = (
+    <p className="r-summary">
+      No sections are visible yet. Add one, or switch a section back on.
+    </p>
+  )
+
+  if (!meta.twoColumn) {
+    return (
+      <div className={`paper tpl-${templateId}`}>
+        {header}
+        {visible.length === 0
+          ? empty
+          : visible.map((block) => <Section block={block} key={block.id} />)}
+      </div>
+    )
+  }
+
+  // Sidebar: short reference sections go left, the narrative stays right.
+  const asideTypes = new Set<string>(SIDEBAR_SECTION_TYPES)
+  const aside = visible.filter((b) => asideTypes.has(b.type))
+  const main = visible.filter((b) => !asideTypes.has(b.type))
+
+  return (
+    <div className={`paper tpl-${templateId}`}>
+      {header}
+      <div className="r-columns">
+        <aside className="r-aside">
+          {contact.length > 0 && (
+            <section className="r-section">
+              <h2 className="r-section-title">Contact</h2>
+              <ul className="r-contact-list">
+                {contact.map((part, i) => (
+                  <li key={i}>{part}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {aside.map((block) => (
+            <Section block={block} key={block.id} />
+          ))}
+        </aside>
+        <div className="r-main">
+          {visible.length === 0
+            ? empty
+            : main.map((block) => <Section block={block} key={block.id} />)}
+        </div>
+      </div>
     </div>
   )
 }

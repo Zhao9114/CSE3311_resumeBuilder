@@ -1,9 +1,10 @@
 import type { Application, Resume, ResumeBlock, SectionType } from '../types'
-import { SECTION_LABELS } from '../types'
+import { DEFAULT_TEMPLATE, SECTION_LABELS } from '../types'
 
 export const seedResume: Resume = {
   id: 'r1',
   title: 'General SWE — v2',
+  templateId: DEFAULT_TEMPLATE,
   profile: {
     name: 'Jordan Avery Chen',
     title: 'Software Engineer',

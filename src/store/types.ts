@@ -4,6 +4,7 @@ import type {
   Resume,
   ResumeBlock,
   SectionType,
+  TemplateId,
 } from '../types'
 
 /**
@@ -20,6 +21,7 @@ export interface ResumeStore {
   get(id: string): Promise<Resume | undefined>
   save(resume: Resume): Promise<Resume>
   updateProfile(resumeId: string, patch: Partial<Resume['profile']>): Promise<Resume>
+  setTemplate(resumeId: string, templateId: TemplateId): Promise<Resume>
 
   /** `title` names a custom section; built-ins use their fixed label. */
   addBlock(resumeId: string, type: SectionType, title?: string): Promise<Resume>

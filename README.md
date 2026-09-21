@@ -38,11 +38,38 @@ Two ideas carry most of the weight:
 narrows `block.data`, so each branch of the editor and the preview gets its own
 typed payload with no casts.
 
+**Custom sections.** The five built-in types are capped at one each, but a
+resume can carry any number of `custom` blocks with user-written titles.
+`isRepeatable` in `src/types/resume.ts` is what distinguishes them, and
+`addBlock` only dedupes the non-repeatable kinds.
+
 **Components never touch state directly.** Every read and write goes through
 `ResumeStore` / `ApplicationStore`, exposed as the `useResume` and
 `useApplications` hooks. Both interfaces are fully async and both hooks already
 surface `loading` and `error`, so swapping the in-memory implementation for a
 network-backed one needs no component changes.
+
+## Templates
+
+Five templates change how the resume renders. The content and block order are
+never touched by a switch — only the presentation.
+
+| Template | Look |
+| --- | --- |
+| Classic | Centered serif header, ruled section titles |
+| Modern | Left-aligned sans, accent titles with a left rule |
+| Compact | Tight spacing to fit more on one page |
+| Elegant | Serif small caps, hairline rules, wide margins |
+| Sidebar | Two columns, with contact, skills and education on the left |
+
+Sidebar is the only structural one: it splits the same blocks across two
+columns rather than restyling a single column. Because `min-height` does not
+apply on paper, its print rules stretch the columns to the page box so the
+sidebar tint runs the full height of the sheet.
+
+Templates live in `src/styles/templates.css`, one block of rules per
+`.tpl-*` class. Adding a sixth means adding an entry to `TEMPLATES` in
+`src/types/template.ts` and a matching block of CSS.
 
 ## Accessibility
 

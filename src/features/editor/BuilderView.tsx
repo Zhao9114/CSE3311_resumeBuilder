@@ -7,6 +7,7 @@ import {
 } from '../../types'
 import BlockList from './BlockList'
 import ProfileEditor from './ProfileEditor'
+import TemplatePicker from './TemplatePicker'
 import ResumePaper from './ResumePaper'
 
 export default function BuilderView() {
@@ -20,6 +21,7 @@ export default function BuilderView() {
     toggleBlock,
     reorderBlocks,
     updateProfile,
+    setTemplate,
   } = useResume()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   // Set when a custom section is added, so its editor can be opened as soon
@@ -60,7 +62,10 @@ export default function BuilderView() {
         {error && <p className="error-banner">{error}</p>}
 
         {resume && (
-          <ProfileEditor profile={resume.profile} onChange={updateProfile} />
+          <>
+            <TemplatePicker value={resume.templateId} onChange={setTemplate} />
+            <ProfileEditor profile={resume.profile} onChange={updateProfile} />
+          </>
         )}
 
         {loading ? (

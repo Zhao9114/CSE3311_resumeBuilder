@@ -1,3 +1,5 @@
+import type { TemplateId } from './template'
+
 /**
  * The five built-in section kinds, each of which a resume holds at most one
  * of. `custom` is separate: a resume may hold any number of custom sections,
@@ -102,6 +104,8 @@ export type ResumeBlock = {
 export interface Resume {
   id: string
   title: string
+  /** Which visual template renders this resume. */
+  templateId: TemplateId
   profile: Profile
   /** Array order is render order; drag-and-drop reorders this. */
   blocks: ResumeBlock[]

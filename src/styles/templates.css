@@ -1,0 +1,204 @@
+/* ============================================================
+   Resume templates
+   Each template restyles the same markup. `.paper` in index.css
+   holds the shared base; these rules layer the differences on top.
+   ============================================================ */
+
+/* ---------------- Classic ----------------
+   Centered serif header, ruled section titles. The base look. */
+.tpl-classic .r-header {
+  text-align: center;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+.tpl-classic .r-contact { margin-bottom: 0; }
+.tpl-classic .r-section-title {
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------------- Modern ----------------
+   Left-aligned sans header, accent-colored titles with a left rule. */
+.tpl-modern .r-name {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: -.02em;
+}
+.tpl-modern .r-header {
+  border-left: 4px solid var(--accent);
+  padding-left: 14px;
+  margin-bottom: 24px;
+}
+.tpl-modern .r-section-title {
+  color: var(--accent-ink);
+  border-bottom: none;
+  border-left: 3px solid var(--accent);
+  padding-left: 9px;
+  letter-spacing: .1em;
+}
+.tpl-modern .r-role { color: var(--ink); }
+
+/* ---------------- Compact ----------------
+   Tighter type and spacing to fit more on one page. */
+.tpl-compact { padding: 34px 40px; }
+.tpl-compact .r-name { font-size: 24px; }
+.tpl-compact .r-title { font-size: 13px; margin-bottom: 6px; }
+.tpl-compact .r-contact { margin-bottom: 14px; font-size: 11.5px; }
+.tpl-compact .r-section { margin-bottom: 13px; }
+.tpl-compact .r-section-title {
+  font-size: 11px;
+  padding-bottom: 2px;
+  margin-bottom: 6px;
+  border-bottom-width: 1px;
+}
+.tpl-compact .r-item { margin-bottom: 9px; }
+.tpl-compact .r-summary,
+.tpl-compact .r-detail { font-size: 12px; line-height: 1.4; }
+.tpl-compact .r-points { margin-top: 3px; }
+.tpl-compact .r-points li { font-size: 12px; line-height: 1.38; margin-bottom: 1px; }
+.tpl-compact .r-role { font-size: 13px; }
+.tpl-compact .r-skill-row { font-size: 12px; }
+
+/* ---------------- Elegant ----------------
+   Serif small caps, hairline rules, generous margins. */
+.tpl-elegant { padding: 60px 68px; }
+.tpl-elegant .r-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.tpl-elegant .r-name {
+  font-weight: 500;
+  font-size: 34px;
+  letter-spacing: .04em;
+}
+.tpl-elegant .r-title {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.tpl-elegant .r-section-title {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: none;
+  font-variant: small-caps;
+  letter-spacing: .08em;
+  border-bottom: 1px solid var(--ink-soft);
+  padding-bottom: 5px;
+}
+.tpl-elegant .r-section { margin-bottom: 26px; }
+.tpl-elegant .r-summary { text-align: justify; }
+
+/* ---------------- Sidebar ----------------
+   Two columns: contact, skills and education on the left. */
+/* A column layout down the page: the header sits on top and the two
+   columns share whatever height is left, so the sidebar tint reaches the
+   bottom of the sheet instead of stopping at its own content. */
+.tpl-sidebar {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tpl-sidebar .r-header {
+  background: var(--ink);
+  color: #fff;
+  padding: 32px 40px 26px;
+  margin: 0;
+}
+.tpl-sidebar .r-name { color: #fff; }
+.tpl-sidebar .r-title { color: #bfe3d0; }
+
+.tpl-sidebar .r-columns {
+  display: grid;
+  grid-template-columns: 34% 1fr;
+  align-items: stretch;
+  flex: 1;
+}
+.tpl-sidebar .r-aside {
+  background: #f7f9fa;
+  padding: 28px 22px 32px 40px;
+  border-right: 1px solid var(--line);
+  /* Fills the column down the page rather than stopping at its content. */
+  align-self: stretch;
+}
+.tpl-sidebar .r-main { padding: 28px 40px 32px 28px; }
+
+.tpl-sidebar .r-section-title {
+  border-bottom: 2px solid var(--accent);
+  font-size: 11px;
+}
+.tpl-sidebar .r-aside .r-section { margin-bottom: 20px; }
+.tpl-sidebar .r-aside .r-skill-row {
+  grid-template-columns: 1fr;
+  gap: 1px;
+  margin-bottom: 7px;
+}
+.tpl-sidebar .r-aside .r-item-head { flex-direction: column; gap: 1px; }
+.tpl-sidebar .r-aside .r-dates { white-space: normal; }
+
+.r-contact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  /* Long emails and link lists must wrap inside a narrow column. */
+  overflow-wrap: anywhere;
+}
+.r-contact-list li { margin-bottom: 3px; }
+
+/* ---------------- Template picker ---------------- */
+.template-picker { margin-bottom: 16px; }
+.template-picker > span {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.template-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.template-option {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.template-option:hover { border-color: var(--accent); color: var(--accent-ink); }
+.template-option[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* ---------------- Print ---------------- */
+@media print {
+  /* Backgrounds are decorative on screen but must survive the PDF, so ask
+     the browser to keep them rather than dropping them to white. */
+  .tpl-sidebar .r-header,
+  .tpl-sidebar .r-aside {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* The sidebar keeps its two columns on paper. Grid does not break across
+     printed pages reliably, so the columns are kept on the first page and
+     long content flows in the main column. */
+  /* min-height does not apply on paper, so stretch the columns to the page
+     box instead, keeping the sidebar tint running the full height. */
+  .tpl-sidebar { padding: 0; min-height: 100vh; }
+  .tpl-sidebar .r-columns { min-height: 0; }
+  .tpl-sidebar .r-header { padding: 24px 28px 20px; }
+  .tpl-sidebar .r-aside { padding: 22px 18px 24px 28px; }
+  .tpl-sidebar .r-main { padding: 22px 28px 24px 22px; }
+  .tpl-elegant { padding: 0; }
+  .tpl-compact { padding: 0; }
+}

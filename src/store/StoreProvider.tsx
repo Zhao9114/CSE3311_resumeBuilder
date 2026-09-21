@@ -6,7 +6,14 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Application, ApplicationDraft, Resume, ResumeBlock, SectionType } from '../types'
+import type {
+  Application,
+  ApplicationDraft,
+  Resume,
+  ResumeBlock,
+  SectionType,
+  TemplateId,
+} from '../types'
 import { InMemoryApplicationStore, InMemoryResumeStore } from './memoryStore'
 import type { ApplicationStore, ResumeStore } from './types'
 
@@ -58,6 +65,7 @@ export interface UseResumeResult {
   toggleBlock: (blockId: string, enabled: boolean) => Promise<void>
   reorderBlocks: (fromIndex: number, toIndex: number) => Promise<void>
   updateProfile: (patch: Partial<Resume['profile']>) => Promise<void>
+  setTemplate: (templateId: TemplateId) => Promise<void>
 }
 
 /** Reads and mutates the active resume. All writes go through ResumeStore. */
@@ -111,6 +119,8 @@ export function useResume(resumeId = 'r1'): UseResumeResult {
         apply(resumeStore.reorderBlocks(resumeId, fromIndex, toIndex)),
       updateProfile: (patch: Partial<Resume['profile']>) =>
         apply(resumeStore.updateProfile(resumeId, patch)),
+      setTemplate: (templateId: TemplateId) =>
+        apply(resumeStore.setTemplate(resumeId, templateId)),
     }
   }, [resumeStore, resumeId])
 

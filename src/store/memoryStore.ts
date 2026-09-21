@@ -4,6 +4,7 @@ import type {
   Resume,
   ResumeBlock,
   SectionType,
+  TemplateId,
 } from '../types'
 import { isRepeatable } from '../types'
 import { blankBlock, seedApplications, seedResumes } from '../data/seed'
@@ -49,6 +50,12 @@ export class InMemoryResumeStore implements ResumeStore {
   ): Promise<Resume> {
     const resume = this.require(resumeId)
     resume.profile = { ...resume.profile, ...patch }
+    return cloneResume(resume)
+  }
+
+  async setTemplate(resumeId: string, templateId: TemplateId): Promise<Resume> {
+    const resume = this.require(resumeId)
+    resume.templateId = templateId
     return cloneResume(resume)
   }
 
