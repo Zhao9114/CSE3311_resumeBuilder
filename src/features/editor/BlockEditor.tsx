@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type {
   CustomEntry,
   EducationItem,
@@ -66,15 +67,10 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                   />
                 </label>
               </div>
-              <label className="field">
-                <span>Bullet points (one per line)</span>
-                <textarea
-                  value={item.points.join('\n')}
-                  onChange={(e) =>
-                    patch(i, { points: splitLines(e.target.value) })
-                  }
-                />
-              </label>
+              <BulletsField
+                points={item.points}
+                onCommit={(points) => patch(i, { points })}
+              />
               <button
                 type="button"
                 className="row-btn is-danger"
@@ -336,4 +332,45 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
 /** Textarea lines to bullet points, dropping blank lines. */
 function splitLines(value: string): string[] {
   return value.split('\n').map((l) => l.trim()).filter(Boolean)
+}
+
+interface BulletsFieldProps {
+  points: string[]
+  onCommit: (points: string[]) => void
+}
+
+/**
+ * Bullet points, edited as free text.
+ *
+ * The stored value is a string[], so the naive version rendered
+ * `points.join('\n')` and re-split on every keystroke. That fought the
+ * typist: the trim removed a trailing space the instant it was typed, and
+ * the blank-line filter swallowed the newline that starts the next bullet,
+ * making Enter appear to do nothing.
+ *
+ * Instead the raw text is kept locally and the split result is still
+ * committed on every change, so the live preview keeps up while the textarea
+ * shows exactly what was typed.
+ */
+function BulletsField({ points, onCommit }: BulletsFieldProps) {
+  const joined = points.join('\n')
+  const [draft, setDraft] = useState<string | null>(null)
+
+  // Fall back to the stored value when this field is not being edited, so
+  // changes from elsewhere (inserting a saved block) still show up.
+  const value = draft ?? joined
+
+  return (
+    <label className="field">
+      <span>Bullet points (one per line)</span>
+      <textarea
+        value={value}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          onCommit(splitLines(e.target.value))
+        }}
+        onBlur={() => setDraft(null)}
+      />
+    </label>
+  )
 }
