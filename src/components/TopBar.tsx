@@ -4,6 +4,8 @@ interface TopBarProps {
   view: ViewKey
   onViewChange: (view: ViewKey) => void
   onExport: () => void
+  onToggleAssistant: () => void
+  assistantOpen: boolean
 }
 
 const TABS: { key: ViewKey; label: string }[] = [
@@ -11,7 +13,13 @@ const TABS: { key: ViewKey; label: string }[] = [
   { key: 'tracker', label: 'Job tracker' },
 ]
 
-export default function TopBar({ view, onViewChange, onExport }: TopBarProps) {
+export default function TopBar({
+  view,
+  onViewChange,
+  onExport,
+  onToggleAssistant,
+  assistantOpen,
+}: TopBarProps) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -36,6 +44,14 @@ export default function TopBar({ view, onViewChange, onExport }: TopBarProps) {
       </nav>
 
       <div className="topbar-actions">
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={onToggleAssistant}
+          aria-pressed={assistantOpen}
+        >
+          Assistant
+        </button>
         <button type="button" className="btn btn-ghost" onClick={onExport}>
           Export PDF
         </button>

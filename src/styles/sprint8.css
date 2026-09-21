@@ -1,0 +1,186 @@
+/* ============================================================
+   Block library, ATS placeholder, and assistant drawer
+   ============================================================ */
+
+/* Marks a surface whose contents are not real yet. */
+.placeholder-note {
+  margin: 0 0 16px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #6b4d12;
+  background: #fdf4e0;
+  border: 1px solid #f0dcb0;
+  border-radius: 8px;
+}
+
+/* The editor pane is narrow; keep the header action on one line. */
+.pane-head .btn-sm { white-space: nowrap; flex: none; }
+
+/* ---------------- Block library ---------------- */
+.library {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+  padding-top: 18px;
+}
+.library-head { margin-bottom: 12px; }
+.library-head .pane-title { font-size: 16px; }
+.library-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.library-tags .chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  border-style: solid;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.library-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.library-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.library-info { flex: 1; min-width: 0; }
+
+/* ---------------- ATS placeholder ---------------- */
+.ats-result { margin-top: 18px; }
+.ats-score { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.ats-ring {
+  width: 76px; height: 76px; border-radius: 50%; flex: none;
+  background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--line) 0);
+  display: grid; place-items: center;
+}
+.ats-ring span {
+  display: grid; place-items: center;
+  width: 60px; height: 60px; background: #fff; border-radius: 50%;
+  font-weight: 700; font-size: 19px;
+}
+.ats-score-text h3 { margin: 0 0 2px; font-size: 15px; }
+.ats-score-text p { margin: 0; font-size: 13px; color: var(--muted); }
+.ats-group { margin-bottom: 16px; }
+.ats-group h4 { margin: 0 0 8px; font-size: 13px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; font-weight: 500; }
+.tag-yes { background: var(--accent-soft); color: var(--accent-ink); }
+.tag-no { background: #fdecec; color: #a13232; }
+.ats-tips { margin: 0; padding-left: 18px; }
+.ats-tips li { font-size: 13px; line-height: 1.5; color: var(--ink-soft); margin-bottom: 6px; }
+
+/* ---------------- Assistant drawer ---------------- */
+.assistant {
+  position: fixed;
+  top: 60px;
+  right: 0;
+  bottom: 0;
+  width: 360px;
+  background: var(--paper);
+  border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px rgba(20, 32, 46, .08);
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  padding: 16px 16px 0;
+}
+/* Shrink the app so the drawer does not cover the preview. */
+.with-assistant .builder-view { padding-right: 360px; }
+.with-assistant .tracker { padding-right: 376px; }
+
+.assistant-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.assistant-head h2 { margin: 0; font-size: 16px; }
+
+.assistant-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+.assistant-empty { color: var(--muted); font-size: 13px; }
+.assistant-empty p { margin: 0 0 10px; }
+.assistant-suggestions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.assistant-suggestions .chip { text-align: left; }
+
+.bubble {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.bubble-user {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-bottom-right-radius: 4px;
+}
+.bubble-assistant {
+  align-self: flex-start;
+  background: var(--bg);
+  color: var(--ink-soft);
+  border-bottom-left-radius: 4px;
+}
+.bubble.is-thinking { display: flex; gap: 4px; align-items: center; }
+.bubble .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted);
+  animation: blink 1.2s infinite;
+}
+.bubble .dot:nth-child(2) { animation-delay: .2s; }
+.bubble .dot:nth-child(3) { animation-delay: .4s; }
+@keyframes blink {
+  0%, 80%, 100% { opacity: .3; }
+  40% { opacity: 1; }
+}
+
+.assistant-form {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.assistant-form textarea {
+  flex: 1;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  resize: none;
+  color: var(--ink);
+  background: var(--paper);
+}
+.assistant-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* The drawer covers the screen on a phone rather than squeezing the app. */
+@media (max-width: 860px) {
+  .assistant { width: 100%; }
+  .with-assistant .builder-view,
+  .with-assistant .tracker { padding-right: 0; }
+}
+
+/* Three actions plus the tabs do not fit a phone. Drop the decorative pill
+   first, then shrink the buttons, so nothing is pushed off the screen. */
+@media (max-width: 560px) {
+  .topbar-actions .demo-pill { display: none; }
+  .topbar-actions .btn { padding: 7px 10px; font-size: 13px; }
+  .topbar { gap: 8px; }
+}
+
+@media print {
+  .assistant { display: none !important; }
+  .with-assistant .builder-view,
+  .with-assistant .tracker { padding-right: 0 !important; }
+  .library { display: none !important; }
+}

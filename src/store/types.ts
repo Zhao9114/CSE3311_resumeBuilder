@@ -3,6 +3,8 @@ import type {
   ApplicationDraft,
   Resume,
   ResumeBlock,
+  SavedBlock,
+  SavedBlockDraft,
   SectionType,
   TemplateId,
 } from '../types'
@@ -25,6 +27,8 @@ export interface ResumeStore {
 
   /** `title` names a custom section; built-ins use their fixed label. */
   addBlock(resumeId: string, type: SectionType, title?: string): Promise<Resume>
+  /** Append a ready-made block, e.g. a copy pulled from the block library. */
+  insertBlock(resumeId: string, block: Omit<ResumeBlock, 'id'>): Promise<Resume>
   removeBlock(resumeId: string, blockId: string): Promise<Resume>
   updateBlock(resumeId: string, block: ResumeBlock): Promise<Resume>
   toggleBlock(resumeId: string, blockId: string, enabled: boolean): Promise<Resume>
@@ -41,6 +45,18 @@ export interface ApplicationStore {
   list(): Promise<Application[]>
   add(draft: ApplicationDraft): Promise<Application>
   update(id: string, patch: Partial<ApplicationDraft>): Promise<Application>
+  remove(id: string): Promise<void>
+}
+
+/**
+ * Saved blocks the user can reuse across resumes.
+ *
+ * TODO(iteration-2): add a SupabaseBlockLibraryStore implementing this.
+ */
+export interface BlockLibraryStore {
+  list(): Promise<SavedBlock[]>
+  save(draft: SavedBlockDraft): Promise<SavedBlock>
+  rename(id: string, name: string): Promise<SavedBlock>
   remove(id: string): Promise<void>
 }
 

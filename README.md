@@ -88,6 +88,30 @@ The Export PDF button switches to the builder and calls `window.print()`. A
 print stylesheet hides the app chrome so only the resume paper prints, with
 page margins and `break-inside: avoid` on sections and items.
 
+## Saved blocks
+
+Any section can be saved to the block library with a name and tags — keep an
+`Experience — Frontend` and an `Experience — Backend`, then insert whichever
+suits the posting. Inserting adds a **copy**: the saved entry is cloned on
+save and again on insert, so editing the resume afterwards never writes back
+into the library.
+
+The library lives behind `BlockLibraryStore`, alongside the other stores, and
+is exposed as the `useBlockLibrary` hook.
+
+## Placeholder screens
+
+Two surfaces are deliberately fake in this iteration. Both say so on screen,
+and neither makes a network request:
+
+- **ATS check** (`src/features/ats/AtsPanel.tsx`) renders a fixed sample
+  result. The real call goes through `atsService.analyze` in
+  `src/services/ats.ts`.
+- **Assistant** (`src/features/assistant/AssistantDrawer.tsx`) is a chat
+  drawer with scripted replies. The real call goes through
+  `assistantService.send` in `src/services/assistant.ts`, whose
+  `AssistantMessage.proposed` field is where generated blocks will arrive.
+
 ## Not in iteration 1
 
 ATS checking, any LLM or API call, real auth, Supabase reads and writes, and
@@ -100,6 +124,8 @@ resume version snapshots are all out of scope. Each has a typed seam marked
 | ATS analysis | `src/services/ats.ts` |
 | Resume version snapshots | `src/store/types.ts` |
 | Auth | `src/store/types.ts` |
+| Assistant / block generation | `src/services/assistant.ts` |
+| Saved blocks persistence | `src/store/types.ts` |
 
 `legacy-demo/` holds the original vanilla HTML/CSS/JS prototype this was
 built from, kept for reference.

@@ -11,6 +11,7 @@ interface SortableBlockProps {
   onToggleEnabled: (enabled: boolean) => void
   onChange: (block: ResumeBlock) => void
   onRemove: () => void
+  onSave: () => void
 }
 
 export default function SortableBlock({
@@ -20,6 +21,7 @@ export default function SortableBlock({
   onToggleEnabled,
   onChange,
   onRemove,
+  onSave,
 }: SortableBlockProps) {
   const {
     attributes,
@@ -52,6 +54,7 @@ export default function SortableBlock({
         onToggleEnabled={onToggleEnabled}
         onChange={onChange}
         onRemove={onRemove}
+        onSave={onSave}
         className={classes}
         handle={
           <button

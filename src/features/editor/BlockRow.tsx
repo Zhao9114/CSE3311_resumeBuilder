@@ -36,6 +36,7 @@ export interface BlockRowProps {
   onToggleEnabled: (enabled: boolean) => void
   onChange: (block: ResumeBlock) => void
   onRemove: () => void
+  onSave?: () => void
   /** Drag handle, supplied by the sortable wrapper in sprint 3. */
   handle?: React.ReactNode
   className?: string
@@ -48,6 +49,7 @@ export default function BlockRow({
   onToggleEnabled,
   onChange,
   onRemove,
+  onSave,
   handle,
   className = '',
 }: BlockRowProps) {
@@ -71,6 +73,16 @@ export default function BlockRow({
           >
             {expanded ? 'Done' : 'Edit'}
           </button>
+          {onSave && (
+            <button
+              type="button"
+              className="row-btn"
+              onClick={onSave}
+              aria-label={`Save ${block.label} to the block library`}
+            >
+              Save
+            </button>
+          )}
           <button
             type="button"
             className="row-btn is-danger"

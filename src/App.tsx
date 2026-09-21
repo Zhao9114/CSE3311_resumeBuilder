@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react'
 import TopBar, { type ViewKey } from './components/TopBar'
+import AssistantDrawer from './features/assistant/AssistantDrawer'
 import BuilderView from './features/editor/BuilderView'
 import TrackerView from './features/tracker/TrackerView'
 
 export default function App() {
   const [view, setView] = useState<ViewKey>('builder')
+  const [assistantOpen, setAssistantOpen] = useState(false)
 
   /**
    * Printing only ever makes sense from the builder, and the print stylesheet
@@ -13,6 +15,7 @@ export default function App() {
    */
   const handleExport = useCallback(() => {
     setView('builder')
+    setAssistantOpen(false)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.print())
     })
@@ -20,8 +23,20 @@ export default function App() {
 
   return (
     <>
-      <TopBar view={view} onViewChange={setView} onExport={handleExport} />
-      {view === 'builder' ? <BuilderView /> : <TrackerView />}
+      <TopBar
+        view={view}
+        onViewChange={setView}
+        onExport={handleExport}
+        onToggleAssistant={() => setAssistantOpen((v) => !v)}
+        assistantOpen={assistantOpen}
+      />
+      <div className={assistantOpen ? 'with-assistant' : undefined}>
+        {view === 'builder' ? <BuilderView /> : <TrackerView />}
+      </div>
+      <AssistantDrawer
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+      />
     </>
   )
 }

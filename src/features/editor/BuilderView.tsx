@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useResume } from '../../store'
+import { useBlockLibrary, useResume } from '../../store'
 import {
   BUILT_IN_SECTION_TYPES,
   SECTION_LABELS,
+  type ResumeBlock,
   type SectionType,
 } from '../../types'
+import AtsPanel from '../ats/AtsPanel'
+import BlockLibraryPanel from './BlockLibraryPanel'
 import BlockList from './BlockList'
+import SaveBlockModal from './SaveBlockModal'
 import ProfileEditor from './ProfileEditor'
 import TemplatePicker from './TemplatePicker'
 import ResumePaper from './ResumePaper'
@@ -22,7 +26,16 @@ export default function BuilderView() {
     reorderBlocks,
     updateProfile,
     setTemplate,
+    insertBlock,
   } = useResume()
+  const {
+    savedBlocks,
+    loading: libraryLoading,
+    saveBlock,
+    removeBlock: removeSavedBlock,
+  } = useBlockLibrary()
+  const [savingBlock, setSavingBlock] = useState<ResumeBlock | null>(null)
+  const [atsOpen, setAtsOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   // Set when a custom section is added, so its editor can be opened as soon
   // as the new block appears in the resume.
@@ -57,6 +70,13 @@ export default function BuilderView() {
               Drag to reorder. Toggle to show or hide on the resume.
             </p>
           </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setAtsOpen(true)}
+          >
+            ATS check
+          </button>
         </div>
 
         {error && <p className="error-banner">{error}</p>}
@@ -90,6 +110,7 @@ export default function BuilderView() {
             onChange={updateBlock}
             onRemove={removeBlock}
             onReorder={reorderBlocks}
+            onSave={setSavingBlock}
           />
         )}
 
@@ -123,6 +144,12 @@ export default function BuilderView() {
             </button>
           </div>
         </div>
+        <BlockLibraryPanel
+          savedBlocks={savedBlocks}
+          loading={libraryLoading}
+          onInsert={insertBlock}
+          onRemove={removeSavedBlock}
+        />
       </section>
 
       <section className="preview-pane">
@@ -135,6 +162,18 @@ export default function BuilderView() {
           </div>
         )}
       </section>
+      {savingBlock && (
+        <SaveBlockModal
+          block={savingBlock}
+          onSave={(draft) => {
+            saveBlock(draft)
+            setSavingBlock(null)
+          }}
+          onClose={() => setSavingBlock(null)}
+        />
+      )}
+
+      {atsOpen && <AtsPanel onClose={() => setAtsOpen(false)} />}
     </main>
   )
 }

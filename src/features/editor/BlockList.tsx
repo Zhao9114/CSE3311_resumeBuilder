@@ -30,6 +30,7 @@ export interface BlockListProps {
   onChange: (block: ResumeBlock) => void
   onRemove: (id: string) => void
   onReorder: (fromIndex: number, toIndex: number) => void
+  onSave: (block: ResumeBlock) => void
 }
 
 export default function BlockList({
@@ -40,6 +41,7 @@ export default function BlockList({
   onChange,
   onRemove,
   onReorder,
+  onSave,
 }: BlockListProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const reducedMotion = useReducedMotion()
@@ -113,6 +115,7 @@ export default function BlockList({
               onToggleEnabled={(enabled) => onToggleEnabled(block.id, enabled)}
               onChange={onChange}
               onRemove={() => onRemove(block.id)}
+              onSave={() => onSave(block)}
             />
           ))}
         </ul>

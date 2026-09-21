@@ -3,12 +3,14 @@ import type {
   ApplicationDraft,
   Resume,
   ResumeBlock,
+  SavedBlock,
+  SavedBlockDraft,
   SectionType,
   TemplateId,
 } from '../types'
 import { isRepeatable } from '../types'
 import { blankBlock, seedApplications, seedResumes } from '../data/seed'
-import type { ApplicationStore, ResumeStore } from './types'
+import type { ApplicationStore, BlockLibraryStore, ResumeStore } from './types'
 
 let idCounter = 0
 function nextId(prefix: string): string {
@@ -74,6 +76,17 @@ export class InMemoryResumeStore implements ResumeStore {
     return cloneResume(resume)
   }
 
+  async insertBlock(
+    resumeId: string,
+    block: Omit<ResumeBlock, 'id'>,
+  ): Promise<Resume> {
+    const resume = this.require(resumeId)
+    // A library block is a copy: it gets a fresh id and never aliases the
+    // saved entry, so later edits cannot write back into the library.
+    resume.blocks.push({ ...structuredClone(block), id: nextId('b') } as ResumeBlock)
+    return cloneResume(resume)
+  }
+
   async removeBlock(resumeId: string, blockId: string): Promise<Resume> {
     const resume = this.require(resumeId)
     resume.blocks = resume.blocks.filter((b) => b.id !== blockId)
@@ -121,6 +134,35 @@ export class InMemoryResumeStore implements ResumeStore {
     const resume = this.resumes.find((r) => r.id === resumeId)
     if (!resume) throw new Error(`Resume not found: ${resumeId}`)
     return resume
+  }
+}
+
+export class InMemoryBlockLibraryStore implements BlockLibraryStore {
+  private saved: SavedBlock[] = []
+
+  async list(): Promise<SavedBlock[]> {
+    return this.saved.map((s) => structuredClone(s))
+  }
+
+  async save(draft: SavedBlockDraft): Promise<SavedBlock> {
+    const entry: SavedBlock = {
+      ...structuredClone(draft),
+      id: nextId('lib'),
+      savedAt: new Date().toISOString(),
+    }
+    this.saved.unshift(entry)
+    return structuredClone(entry)
+  }
+
+  async rename(id: string, name: string): Promise<SavedBlock> {
+    const entry = this.saved.find((s) => s.id === id)
+    if (!entry) throw new Error(`Saved block not found: ${id}`)
+    entry.name = name
+    return structuredClone(entry)
+  }
+
+  async remove(id: string): Promise<void> {
+    this.saved = this.saved.filter((s) => s.id !== id)
   }
 }
 
