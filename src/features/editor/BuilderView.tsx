@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useResume } from '../../store'
 import { SECTION_LABELS, SECTION_TYPES, type SectionType } from '../../types'
 import BlockList from './BlockList'
+import ProfileEditor from './ProfileEditor'
 import ResumePaper from './ResumePaper'
 
 export default function BuilderView() {
@@ -14,6 +15,7 @@ export default function BuilderView() {
     updateBlock,
     toggleBlock,
     reorderBlocks,
+    updateProfile,
   } = useResume()
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -32,6 +34,10 @@ export default function BuilderView() {
         </div>
 
         {error && <p className="error-banner">{error}</p>}
+
+        {resume && (
+          <ProfileEditor profile={resume.profile} onChange={updateProfile} />
+        )}
 
         {loading ? (
           <div aria-busy="true" aria-label="Loading sections">

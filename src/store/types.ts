@@ -40,3 +40,24 @@ export interface ApplicationStore {
   update(id: string, patch: Partial<ApplicationDraft>): Promise<Application>
   remove(id: string): Promise<void>
 }
+
+/**
+ * TODO(iteration-2): resume version snapshots. The tracker already records
+ * which resume an application used, so snapshots slot in behind this
+ * interface without touching the tracker UI.
+ */
+export interface ResumeVersionStore {
+  snapshot(resumeId: string, label: string): Promise<Resume>
+  listVersions(resumeId: string): Promise<Resume[]>
+  restore(versionId: string): Promise<Resume>
+}
+
+/**
+ * TODO(iteration-2): real auth. Iteration 1 has no users; every store call
+ * runs as a single implicit local user.
+ */
+export interface AuthGateway {
+  currentUserId(): Promise<string | null>
+  signIn(email: string, password: string): Promise<string>
+  signOut(): Promise<void>
+}

@@ -110,7 +110,14 @@ export default function TrackerView() {
           </button>
         </div>
       ) : (
-        <div className="table-wrap">
+        // tabIndex makes the scroll area reachable by keyboard when the
+        // table overflows on narrow screens.
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Applications table"
+        >
           <table className="apps">
             <caption className="visually-hidden">
               Tracked job applications

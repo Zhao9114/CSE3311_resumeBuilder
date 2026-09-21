@@ -1,7 +1,9 @@
 :root {
   --ink: #14202e;          /* deep navy ink */
   --ink-soft: #3a4a5c;
-  --muted: #6b7a8a;
+  /* 4.7:1 on the grey app background, 5.2:1 on paper — clears WCAG AA
+     everywhere it is used, including meta text on a disabled block. */
+  --muted: #616e7a;
   --line: #e2e7ec;
   --bg: #f2f4f6;
   --paper: #ffffff;
@@ -173,6 +175,19 @@ body {
 .switch input:checked + .track { background: var(--accent); }
 .switch input:checked + .track::before { transform: translateX(16px); }
 .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* profile (name + contact) editor */
+.profile-editor { margin-bottom: 16px; }
+.profile-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; text-align: left; font-family: inherit;
+  padding: 12px 14px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--paper); cursor: pointer;
+}
+.profile-toggle:hover { border-color: var(--accent); }
+.profile-toggle > span:first-child { display: block; min-width: 0; }
+.profile-editor .block-panel { margin: -1px 8px 0; }
+.profile-editor .field-row { grid-template-columns: 1fr 1fr; }
 
 /* expanded per-block content form */
 .block-panel {
@@ -359,10 +374,16 @@ body {
 /* ---------------- Focus visibility ---------------- */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Without an explicit `left`, an absolutely positioned element resolves to
+   its static position — which, inside a wide scrolling table, sits far off
+   to the right and silently widens the page. Pinning it to the left edge
+   keeps it off-screen for sighted users without extending the layout. */
 .visually-hidden {
-  position: absolute; width: 1px; height: 1px;
+  position: absolute; left: 0; top: 0;
+  width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
-  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -374,7 +395,10 @@ body {
 
 /* ---------------- Print (Export PDF) ---------------- */
 @media print {
-  .topbar, .editor-pane, .demo-pill, .no-print { display: none !important; }
+  /* Only the resume paper prints. The tracker is hidden too, so a stray
+     Ctrl+P from that tab never prints a table of applications. */
+  .topbar, .editor-pane, .demo-pill, .no-print, .tracker,
+  .modal-backdrop { display: none !important; }
   body { background: #fff; }
   .builder-view { display: block; height: auto; }
   .preview-pane { padding: 0; overflow: visible; display: block; }
@@ -399,8 +423,24 @@ body {
   .tab { padding: 8px 10px; }
 }
 
+@media (max-width: 720px) {
+  /* Six columns cannot fit a phone. Let the table scroll inside its own
+     container so the page itself never scrolls sideways. */
+  .tracker { max-width: 100%; min-width: 0; }
+  /* min-width:0 lets the container actually clip and scroll its table
+     instead of being stretched by the table's intrinsic width. */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .apps { min-width: 640px; }
+}
+
 @media (max-width: 520px) {
   .field-row { grid-template-columns: 1fr; gap: 0; }
+  .profile-editor .field-row { grid-template-columns: 1fr; }
   .r-skill-row { grid-template-columns: 1fr; gap: 2px; }
   .r-item-head { flex-direction: column; gap: 2px; }
   .paper { padding: 24px 18px; }
