@@ -52,7 +52,7 @@ export interface UseResumeResult {
   resumes: Resume[]
   loading: boolean
   error: string | null
-  addBlock: (type: SectionType) => Promise<void>
+  addBlock: (type: SectionType, title?: string) => Promise<void>
   removeBlock: (blockId: string) => Promise<void>
   updateBlock: (block: ResumeBlock) => Promise<void>
   toggleBlock: (blockId: string, enabled: boolean) => Promise<void>
@@ -101,7 +101,8 @@ export function useResume(resumeId = 'r1'): UseResumeResult {
       }
     }
     return {
-      addBlock: (type: SectionType) => apply(resumeStore.addBlock(resumeId, type)),
+      addBlock: (type: SectionType, title?: string) =>
+        apply(resumeStore.addBlock(resumeId, type, title)),
       removeBlock: (blockId: string) => apply(resumeStore.removeBlock(resumeId, blockId)),
       updateBlock: (block: ResumeBlock) => apply(resumeStore.updateBlock(resumeId, block)),
       toggleBlock: (blockId: string, enabled: boolean) =>

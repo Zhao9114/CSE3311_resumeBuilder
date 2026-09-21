@@ -21,7 +21,8 @@ export interface ResumeStore {
   save(resume: Resume): Promise<Resume>
   updateProfile(resumeId: string, patch: Partial<Resume['profile']>): Promise<Resume>
 
-  addBlock(resumeId: string, type: SectionType): Promise<Resume>
+  /** `title` names a custom section; built-ins use their fixed label. */
+  addBlock(resumeId: string, type: SectionType, title?: string): Promise<Resume>
   removeBlock(resumeId: string, blockId: string): Promise<Resume>
   updateBlock(resumeId: string, block: ResumeBlock): Promise<Resume>
   toggleBlock(resumeId: string, blockId: string, enabled: boolean): Promise<Resume>

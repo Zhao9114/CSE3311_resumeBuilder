@@ -1,4 +1,5 @@
 import type {
+  CustomEntry,
   EducationItem,
   ExperienceItem,
   ProjectItem,
@@ -259,6 +260,72 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
             }
           >
             + Add project
+          </button>
+        </>
+      )
+    }
+
+    case 'custom': {
+      const { items } = block.data
+      const setItems = (next: CustomEntry[]) =>
+        onChange({ ...block, data: { items: next } })
+      const patch = (i: number, p: Partial<CustomEntry>) =>
+        setItems(items.map((it, j) => (j === i ? { ...it, ...p } : it)))
+
+      return (
+        <>
+          <label className="field">
+            <span>Section title</span>
+            <input
+              value={block.label}
+              onChange={(e) => onChange({ ...block, label: e.target.value })}
+              placeholder="e.g. Certifications"
+            />
+          </label>
+
+          {items.map((item, i) => (
+            <fieldset className="sub-item" key={i}>
+              <legend className="visually-hidden">Entry {i + 1}</legend>
+              <div className="field-row">
+                <label className="field">
+                  <span>Name</span>
+                  <input
+                    value={item.name}
+                    onChange={(e) => patch(i, { name: e.target.value })}
+                    placeholder="e.g. AWS Solutions Architect"
+                  />
+                </label>
+                <label className="field">
+                  <span>Date or issuer</span>
+                  <input
+                    value={item.meta}
+                    onChange={(e) => patch(i, { meta: e.target.value })}
+                    placeholder="e.g. 2025"
+                  />
+                </label>
+              </div>
+              <label className="field">
+                <span>Detail</span>
+                <input
+                  value={item.detail}
+                  onChange={(e) => patch(i, { detail: e.target.value })}
+                />
+              </label>
+              <button
+                type="button"
+                className="row-btn is-danger"
+                onClick={() => setItems(items.filter((_, j) => j !== i))}
+              >
+                Remove entry
+              </button>
+            </fieldset>
+          ))}
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setItems([...items, { name: '', meta: '', detail: '' }])}
+          >
+            + Add entry
           </button>
         </>
       )

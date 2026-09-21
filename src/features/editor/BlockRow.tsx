@@ -22,6 +22,10 @@ export function blockMeta(block: ResumeBlock): string {
       const n = block.data.items.length
       return `${n} project${n === 1 ? '' : 's'}`
     }
+    case 'custom': {
+      const n = block.data.items.length
+      return `Custom · ${n} ${n === 1 ? 'entry' : 'entries'}`
+    }
   }
 }
 

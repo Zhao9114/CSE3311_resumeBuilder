@@ -75,6 +75,21 @@ function SectionBody({ block }: { block: ResumeBlock }) {
           ))}
         </>
       )
+
+    case 'custom':
+      return (
+        <>
+          {block.data.items.map((item, i) => (
+            <div className="r-item" key={i}>
+              <div className="r-item-head">
+                <span className="r-role">{item.name}</span>
+                {item.meta && <span className="r-dates">{item.meta}</span>}
+              </div>
+              {item.detail && <p className="r-detail">{item.detail}</p>}
+            </div>
+          ))}
+        </>
+      )
   }
 }
 

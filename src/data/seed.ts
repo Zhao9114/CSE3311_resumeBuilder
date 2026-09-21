@@ -115,10 +115,25 @@ export const seedApplications: Application[] = [
   { id: 'a6', employer: 'Local Startup', role: 'Full-stack (contract)', status: 'Custom', customStatus: 'Take-home sent', resumeId: 'r2', appliedAt: '2026-08-22' },
 ]
 
-/** Starter content used when adding a fresh section from the chip row. */
-export function blankBlock(type: SectionType, id: string): ResumeBlock {
+/**
+ * Starter content used when adding a fresh section from the chip row.
+ * `title` names a custom section; built-ins ignore it and use their label.
+ */
+export function blankBlock(
+  type: SectionType,
+  id: string,
+  title?: string,
+): ResumeBlock {
   const label = SECTION_LABELS[type]
   switch (type) {
+    case 'custom':
+      return {
+        id,
+        type,
+        label: title?.trim() || 'New section',
+        enabled: true,
+        data: { items: [{ name: '', meta: '', detail: '' }] },
+      }
     case 'summary':
       return { id, type, label, enabled: true, data: { text: 'A short intro paragraph about who you are and what you build.' } }
     case 'experience':

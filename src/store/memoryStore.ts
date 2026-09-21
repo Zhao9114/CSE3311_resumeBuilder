@@ -5,6 +5,7 @@ import type {
   ResumeBlock,
   SectionType,
 } from '../types'
+import { isRepeatable } from '../types'
 import { blankBlock, seedApplications, seedResumes } from '../data/seed'
 import type { ApplicationStore, ResumeStore } from './types'
 
@@ -51,10 +52,17 @@ export class InMemoryResumeStore implements ResumeStore {
     return cloneResume(resume)
   }
 
-  async addBlock(resumeId: string, type: SectionType): Promise<Resume> {
+  async addBlock(
+    resumeId: string,
+    type: SectionType,
+    title?: string,
+  ): Promise<Resume> {
     const resume = this.require(resumeId)
-    if (!resume.blocks.some((b) => b.type === type)) {
-      resume.blocks.push(blankBlock(type, nextId('b')))
+    // Built-ins are capped at one each; custom sections are unlimited.
+    const alreadyPresent =
+      !isRepeatable(type) && resume.blocks.some((b) => b.type === type)
+    if (!alreadyPresent) {
+      resume.blocks.push(blankBlock(type, nextId('b'), title))
     }
     return cloneResume(resume)
   }

@@ -186,6 +186,10 @@ body {
 }
 .profile-toggle:hover { border-color: var(--accent); }
 .profile-toggle > span:first-child { display: block; min-width: 0; }
+/* .block-label and .block-meta are spans here, so they need to be made
+   block-level or the name and the caption run together on one line. */
+.profile-toggle .block-label,
+.profile-toggle .block-meta { display: block; }
 .profile-editor .block-panel { margin: -1px 8px 0; }
 .profile-editor .field-row { grid-template-columns: 1fr 1fr; }
 
@@ -446,3 +450,8 @@ body {
   .paper { padding: 24px 18px; }
   .tracker { padding: 20px 14px; }
 }
+
+/* the custom-section chip is always available, so give it a solid border
+   to set it apart from the capped built-in chips */
+.chip-custom { border-style: solid; border-color: var(--accent); color: var(--accent-ink); }
+.chip-custom:hover:not(:disabled) { background: var(--accent-soft); }

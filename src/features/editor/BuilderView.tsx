@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useResume } from '../../store'
-import { SECTION_LABELS, SECTION_TYPES, type SectionType } from '../../types'
+import {
+  BUILT_IN_SECTION_TYPES,
+  SECTION_LABELS,
+  type SectionType,
+} from '../../types'
 import BlockList from './BlockList'
 import ProfileEditor from './ProfileEditor'
 import ResumePaper from './ResumePaper'
@@ -18,8 +22,28 @@ export default function BuilderView() {
     updateProfile,
   } = useResume()
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Set when a custom section is added, so its editor can be opened as soon
+  // as the new block appears in the resume.
+  const [pendingCustom, setPendingCustom] = useState<Set<string> | null>(null)
 
   const present = new Set<SectionType>(resume?.blocks.map((b) => b.type) ?? [])
+
+  useEffect(() => {
+    if (!pendingCustom || !resume) return
+    const added = resume.blocks.find(
+      (b) => b.type === 'custom' && !pendingCustom.has(b.id),
+    )
+    if (added) {
+      setExpandedId(added.id)
+      setPendingCustom(null)
+    }
+  }, [resume, pendingCustom])
+
+  function handleAddCustom() {
+    const existing = resume?.blocks.filter((b) => b.type === 'custom') ?? []
+    setPendingCustom(new Set(existing.map((b) => b.id)))
+    addBlock('custom')
+  }
 
   return (
     <main className="builder-view">
@@ -67,7 +91,7 @@ export default function BuilderView() {
         <div className="add-block">
           <span>Add a section</span>
           <div className="add-block-buttons">
-            {SECTION_TYPES.map((type) => {
+            {BUILT_IN_SECTION_TYPES.map((type) => {
               const exists = present.has(type)
               return (
                 <button
@@ -82,6 +106,16 @@ export default function BuilderView() {
                 </button>
               )
             })}
+            {/* Custom sections are never capped, so this chip never disables.
+                Adding one opens its editor so the title can be typed at once. */}
+            <button
+              type="button"
+              className="chip chip-custom"
+              title="Add a section with your own title"
+              onClick={handleAddCustom}
+            >
+              + Custom section
+            </button>
           </div>
         </div>
       </section>
