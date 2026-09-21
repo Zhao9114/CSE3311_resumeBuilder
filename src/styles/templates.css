@@ -189,13 +189,11 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* The sidebar keeps its two columns on paper. Grid does not break across
-     printed pages reliably, so the columns are kept on the first page and
-     long content flows in the main column. */
-  /* min-height does not apply on paper, so stretch the columns to the page
-     box instead, keeping the sidebar tint running the full height. */
-  .tpl-sidebar { padding: 0; min-height: 100vh; }
-  .tpl-sidebar .r-columns { min-height: 0; }
+  /* The sidebar keeps its two columns on paper. A fixed height here would
+     pin the sheet to one page and clip anything past it, so the paper is
+     left to grow and paginate; the tint simply ends with its content. */
+  .tpl-sidebar { padding: 0; min-height: 0; display: block; }
+  .tpl-sidebar .r-columns { min-height: 0; align-items: start; }
   .tpl-sidebar .r-header { padding: 24px 28px 20px; }
   .tpl-sidebar .r-aside { padding: 22px 18px 24px 28px; }
   .tpl-sidebar .r-main { padding: 22px 28px 24px 22px; }

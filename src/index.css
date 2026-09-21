@@ -405,13 +405,43 @@ body {
   .modal-backdrop { display: none !important; }
   body { background: #fff; }
   .builder-view { display: block; height: auto; }
-  .preview-pane { padding: 0; overflow: visible; display: block; }
-  .paper {
-    box-shadow: none; max-width: none; width: 100%;
-    padding: 0; min-height: 0; border-radius: 0;
+  /* Nothing in the chain may scroll or be sized to the viewport, or the
+     browser clips the resume to one screenful instead of paginating it. */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
   }
-  .r-section { break-inside: avoid; }
+  .builder-view,
+  .preview-pane,
+  .editor-pane {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .preview-pane { padding: 0; display: block; }
+  .paper {
+    box-shadow: none;
+    /* Letter width minus the 18mm @page margins. Without an explicit width
+       the paper fills the browser window, which throws right-aligned dates
+       off the sheet and ruins the line length. */
+    width: 179mm;
+    max-width: 179mm;
+    margin: 0 auto;
+    padding: 0;
+    min-height: 0;
+    border-radius: 0;
+  }
+
+  /* Keep an individual entry together, but a whole section must be free to
+     break — an Experience list longer than a page cannot fit on one. */
   .r-item { break-inside: avoid; }
+  .r-section { break-inside: auto; }
+  /* Never strand a heading at the foot of a page. */
+  .r-section-title { break-after: avoid; break-inside: avoid; }
+  .r-points li { break-inside: avoid; }
+  /* Orphans and widows are ignored by some engines, but cost nothing. */
+  p, li { orphans: 2; widows: 2; }
+
   @page { margin: 18mm; }
 }
 
