@@ -1,145 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Easy Resume Builder</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">ER</span>
-      <span class="brand-name">Easy Resume Builder</span>
-    </div>
-    <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-view="builder">Resume builder</button>
-      <button class="tab" data-view="tracker">Job tracker</button>
-    </nav>
-    <div class="topbar-actions">
-      <button class="btn btn-ghost" id="printBtn">Export PDF</button>
-      <span class="demo-pill">Demo data</span>
-    </div>
-  </header>
-
-  <!-- ============ BUILDER VIEW ============ -->
-  <main class="view is-active" id="view-builder">
-    <section class="editor-pane">
-      <div class="pane-head">
-        <div>
-          <h1 class="pane-title">Sections</h1>
-          <p class="pane-sub">Drag to reorder. Toggle to show or hide on the resume.</p>
-        </div>
-        <button class="btn btn-primary" id="atsBtn">Run ATS check</button>
-      </div>
-
-      <ul class="block-list" id="blockList"><!-- blocks injected --></ul>
-
-      <div class="add-block">
-        <span>Add a section</span>
-        <div class="add-block-buttons" id="addBlockButtons"><!-- injected --></div>
-      </div>
-    </section>
-
-    <section class="preview-pane">
-      <div class="paper" id="paper"><!-- resume injected --></div>
-    </section>
-  </main>
-
-  <!-- ============ TRACKER VIEW ============ -->
-  <main class="view" id="view-tracker">
-    <section class="tracker">
-      <div class="pane-head">
-        <div>
-          <h1 class="pane-title">Applications</h1>
-          <p class="pane-sub" id="trackerCount"></p>
-        </div>
-        <button class="btn btn-primary" id="addAppBtn">Add application</button>
-      </div>
-
-      <div class="stat-row" id="statRow"><!-- injected --></div>
-
-      <div class="table-wrap">
-        <table class="apps">
-          <thead>
-            <tr>
-              <th>Employer</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Resume used</th>
-              <th>Applied</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="appsBody"><!-- injected --></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <!-- ============ ATS MODAL ============ -->
-  <div class="modal-backdrop" id="atsModal" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="atsTitle">
-      <div class="modal-head">
-        <h2 id="atsTitle">ATS analysis</h2>
-        <button class="icon-btn" id="atsClose" aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body" id="atsBody"><!-- injected --></div>
-      <p class="modal-note">Demo output. In the real app this comes from an LLM call routed through a serverless function.</p>
-    </div>
-  </div>
-
-  <!-- ============ APPLICATION MODAL ============ -->
-  <div class="modal-backdrop" id="appModal" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="appTitle">
-      <div class="modal-head">
-        <h2 id="appTitle">Add application</h2>
-        <button class="icon-btn" id="appClose" aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <label class="field">
-          <span>Employer</span>
-          <input type="text" id="fEmployer" placeholder="e.g. Stripe" />
-        </label>
-        <label class="field">
-          <span>Role</span>
-          <input type="text" id="fRole" placeholder="e.g. Backend Intern" />
-        </label>
-        <div class="field-row">
-          <label class="field">
-            <span>Status</span>
-            <select id="fStatus">
-              <option>Applied</option>
-              <option>Interview</option>
-              <option>Waitlist</option>
-              <option>Hold</option>
-              <option>Accepted</option>
-              <option>Rejected</option>
-              <option>Declined</option>
-              <option value="__custom">Custom…</option>
-            </select>
-          </label>
-          <label class="field" id="customWrap" hidden>
-            <span>Custom status</span>
-            <input type="text" id="fCustom" placeholder="e.g. Take-home sent" />
-          </label>
-        </div>
-        <label class="field">
-          <span>Resume used</span>
-          <select id="fResume"></select>
-        </label>
-      </div>
-      <div class="modal-foot">
-        <button class="btn btn-ghost" id="appCancel">Cancel</button>
-        <button class="btn btn-primary" id="appSave">Save application</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="data.js"></script>
-  <script src="app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Draftly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
