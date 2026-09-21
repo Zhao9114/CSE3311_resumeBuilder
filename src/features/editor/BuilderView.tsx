@@ -1,7 +1,23 @@
+import { useState } from 'react'
 import { useResume } from '../../store'
+import { SECTION_LABELS, SECTION_TYPES, type SectionType } from '../../types'
+import BlockList from './BlockList'
+import ResumePaper from './ResumePaper'
 
 export default function BuilderView() {
-  const { resume, loading } = useResume()
+  const {
+    resume,
+    loading,
+    error,
+    addBlock,
+    removeBlock,
+    updateBlock,
+    toggleBlock,
+    reorderBlocks,
+  } = useResume()
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const present = new Set<SectionType>(resume?.blocks.map((b) => b.type) ?? [])
 
   return (
     <main className="builder-view">
@@ -14,24 +30,65 @@ export default function BuilderView() {
             </p>
           </div>
         </div>
+
+        {error && <p className="error-banner">{error}</p>}
+
         {loading ? (
-          <p className="pane-sub">Loading…</p>
+          <div aria-busy="true" aria-label="Loading sections">
+            <div className="skeleton" style={{ height: 48 }} />
+            <div className="skeleton" style={{ height: 48 }} />
+            <div className="skeleton" style={{ height: 48 }} />
+          </div>
+        ) : !resume || resume.blocks.length === 0 ? (
+          <div className="empty">
+            <h3>No sections yet</h3>
+            <p>Add your first section to start building the resume.</p>
+          </div>
         ) : (
-          <ul className="block-list">
-            {resume?.blocks.map((b) => (
-              <li key={b.id} className="block">
-                <div className="block-info">
-                  <div className="block-label">{b.label}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <BlockList
+            blocks={resume.blocks}
+            expandedId={expandedId}
+            onToggleExpand={(id) =>
+              setExpandedId((cur) => (cur === id ? null : id))
+            }
+            onToggleEnabled={toggleBlock}
+            onChange={updateBlock}
+            onRemove={removeBlock}
+            onReorder={reorderBlocks}
+          />
         )}
-      </section>
-      <section className="preview-pane">
-        <div className="paper">
-          <h1 className="r-name">{resume?.profile.name}</h1>
+
+        <div className="add-block">
+          <span>Add a section</span>
+          <div className="add-block-buttons">
+            {SECTION_TYPES.map((type) => {
+              const exists = present.has(type)
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  className="chip"
+                  disabled={exists}
+                  title={exists ? 'Already added' : `Add ${SECTION_LABELS[type]}`}
+                  onClick={() => addBlock(type)}
+                >
+                  + {SECTION_LABELS[type]}
+                </button>
+              )
+            })}
+          </div>
         </div>
+      </section>
+
+      <section className="preview-pane">
+        {resume ? (
+          <ResumePaper resume={resume} />
+        ) : (
+          <div className="paper" aria-busy="true">
+            <div className="skeleton" style={{ height: 34, width: '55%' }} />
+            <div className="skeleton" style={{ width: '35%' }} />
+          </div>
+        )}
       </section>
     </main>
   )
