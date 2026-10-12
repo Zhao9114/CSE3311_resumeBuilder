@@ -3,26 +3,28 @@ import type {
   ApplicationDraft,
   Resume,
   ResumeBlock,
+  ResumeVersion,
   SavedBlock,
   SavedBlockDraft,
   SectionType,
   TemplateId,
 } from '../types'
-import { isRepeatable } from '../types'
-import { blankBlock, seedApplications, seedResumes } from '../data/seed'
-import type { ApplicationStore, BlockLibraryStore, ResumeStore } from './types'
+import { seedApplications, seedResumes, seedVersions } from '../data/seed'
+import * as ops from './resumeOps'
+import { cloneResume, nextId } from './resumeOps'
+import type {
+  ApplicationStore,
+  BlockLibraryStore,
+  ResumeStore,
+  ResumeVersionStore,
+} from './types'
 
-let idCounter = 0
-function nextId(prefix: string): string {
-  idCounter += 1
-  return `${prefix}${Date.now().toString(36)}${idCounter}`
-}
-
-/** Deep-ish clone of the seed so edits never mutate the module constants. */
-function cloneResume(resume: Resume): Resume {
-  return structuredClone(resume)
-}
-
+/**
+ * In-memory stores. Used in demo mode (no Supabase env vars) and by the unit
+ * tests. Every read and write clones, so callers can never hold a reference
+ * into the store's own state — the same guarantee a network store gets for
+ * free from serialization.
+ */
 export class InMemoryResumeStore implements ResumeStore {
   private resumes: Resume[]
 
@@ -46,94 +48,78 @@ export class InMemoryResumeStore implements ResumeStore {
     return cloneResume(resume)
   }
 
-  async updateProfile(
-    resumeId: string,
-    patch: Partial<Resume['profile']>,
-  ): Promise<Resume> {
-    const resume = this.require(resumeId)
-    resume.profile = { ...resume.profile, ...patch }
-    return cloneResume(resume)
+  updateProfile(resumeId: string, patch: Partial<Resume['profile']>): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.updateProfile(r, patch))
   }
 
-  async setTemplate(resumeId: string, templateId: TemplateId): Promise<Resume> {
-    const resume = this.require(resumeId)
-    resume.templateId = templateId
-    return cloneResume(resume)
+  setTemplate(resumeId: string, templateId: TemplateId): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.setTemplate(r, templateId))
   }
 
-  async addBlock(
-    resumeId: string,
-    type: SectionType,
-    title?: string,
-  ): Promise<Resume> {
-    const resume = this.require(resumeId)
-    // Built-ins are capped at one each; custom sections are unlimited.
-    const alreadyPresent =
-      !isRepeatable(type) && resume.blocks.some((b) => b.type === type)
-    if (!alreadyPresent) {
-      resume.blocks.push(blankBlock(type, nextId('b'), title))
+  addBlock(resumeId: string, type: SectionType, title?: string): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.addBlock(r, type, title))
+  }
+
+  insertBlock(resumeId: string, block: Omit<ResumeBlock, 'id'>): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.insertBlock(r, block))
+  }
+
+  removeBlock(resumeId: string, blockId: string): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.removeBlock(r, blockId))
+  }
+
+  updateBlock(resumeId: string, block: ResumeBlock): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.updateBlock(r, block))
+  }
+
+  toggleBlock(resumeId: string, blockId: string, enabled: boolean): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.toggleBlock(r, blockId, enabled))
+  }
+
+  reorderBlocks(resumeId: string, fromIndex: number, toIndex: number): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.reorderBlocks(r, fromIndex, toIndex))
+  }
+
+  private async apply(resumeId: string, op: (r: Resume) => Resume): Promise<Resume> {
+    const index = this.resumes.findIndex((r) => r.id === resumeId)
+    if (index === -1) throw new Error(`Resume not found: ${resumeId}`)
+    const next = op(this.resumes[index])
+    this.resumes[index] = next
+    return cloneResume(next)
+  }
+}
+
+export class InMemoryResumeVersionStore implements ResumeVersionStore {
+  private versions: ResumeVersion[]
+
+  constructor(seed: ResumeVersion[] = seedVersions) {
+    this.versions = seed.map((v) => structuredClone(v))
+  }
+
+  async snapshot(resume: Resume, label: string): Promise<ResumeVersion> {
+    // structuredClone is the immutability guarantee: the version shares no
+    // objects with the live resume, so later edits to it cannot leak in.
+    const version: ResumeVersion = {
+      id: nextId('v'),
+      resumeId: resume.id,
+      label: label.trim() || 'Untitled version',
+      createdAt: new Date().toISOString(),
+      resume: cloneResume(resume),
     }
-    return cloneResume(resume)
+    this.versions.push(version)
+    return structuredClone(version)
   }
 
-  async insertBlock(
-    resumeId: string,
-    block: Omit<ResumeBlock, 'id'>,
-  ): Promise<Resume> {
-    const resume = this.require(resumeId)
-    // A library block is a copy: it gets a fresh id and never aliases the
-    // saved entry, so later edits cannot write back into the library.
-    resume.blocks.push({ ...structuredClone(block), id: nextId('b') } as ResumeBlock)
-    return cloneResume(resume)
+  async list(resumeId?: string): Promise<ResumeVersion[]> {
+    return this.versions
+      .filter((v) => resumeId === undefined || v.resumeId === resumeId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((v) => structuredClone(v))
   }
 
-  async removeBlock(resumeId: string, blockId: string): Promise<Resume> {
-    const resume = this.require(resumeId)
-    resume.blocks = resume.blocks.filter((b) => b.id !== blockId)
-    return cloneResume(resume)
-  }
-
-  async updateBlock(resumeId: string, block: ResumeBlock): Promise<Resume> {
-    const resume = this.require(resumeId)
-    const index = resume.blocks.findIndex((b) => b.id === block.id)
-    if (index !== -1) resume.blocks[index] = structuredClone(block)
-    return cloneResume(resume)
-  }
-
-  async toggleBlock(
-    resumeId: string,
-    blockId: string,
-    enabled: boolean,
-  ): Promise<Resume> {
-    const resume = this.require(resumeId)
-    const block = resume.blocks.find((b) => b.id === blockId)
-    if (block) block.enabled = enabled
-    return cloneResume(resume)
-  }
-
-  async reorderBlocks(
-    resumeId: string,
-    fromIndex: number,
-    toIndex: number,
-  ): Promise<Resume> {
-    const resume = this.require(resumeId)
-    const max = resume.blocks.length - 1
-    if (
-      fromIndex < 0 || fromIndex > max ||
-      toIndex < 0 || toIndex > max ||
-      fromIndex === toIndex
-    ) {
-      return cloneResume(resume)
-    }
-    const [moved] = resume.blocks.splice(fromIndex, 1)
-    resume.blocks.splice(toIndex, 0, moved)
-    return cloneResume(resume)
-  }
-
-  private require(resumeId: string): Resume {
-    const resume = this.resumes.find((r) => r.id === resumeId)
-    if (!resume) throw new Error(`Resume not found: ${resumeId}`)
-    return resume
+  async get(id: string): Promise<ResumeVersion | undefined> {
+    const found = this.versions.find((v) => v.id === id)
+    return found ? structuredClone(found) : undefined
   }
 }
 

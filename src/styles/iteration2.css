@@ -1,0 +1,82 @@
+/* ============================================================
+   Iteration 2: sign-in screen, save status, resume versions
+   ============================================================ */
+
+/* ---------------- Sign-in screen ---------------- */
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+.auth-brand { margin-bottom: 22px; }
+.auth-card .pane-sub { margin-bottom: 20px; line-height: 1.45; }
+.auth-submit { width: 100%; }
+.auth-submit:disabled { opacity: .7; cursor: progress; }
+.auth-notice {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+.auth-switch { margin: 18px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-ink);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---------------- Top bar: account + save status ---------------- */
+.account-email {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sync-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+.sync-saving { color: var(--ink-soft); background: var(--bg); }
+.sync-error { color: #b23b3b; background: #fdecec; }
+
+/* ---------------- Builder header actions ---------------- */
+.pane-head-actions { display: flex; gap: 8px; flex: none; }
+.pane-head-actions .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---------------- Tracker ---------------- */
+.app-resume-date { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .account-email { display: none; }
+}
+@media (max-width: 520px) {
+  .auth-card { padding: 22px 18px; }
+  .pane-head { flex-wrap: wrap; }
+}
+@media print {
+  .sync-pill, .versions { display: none !important; }
+}

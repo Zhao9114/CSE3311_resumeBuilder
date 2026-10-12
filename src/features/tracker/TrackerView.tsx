@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { useApplications, useResume } from '../../store'
+import { useApplications, useResume, useVersions } from '../../store'
 import {
   isInProgress,
+  resumeUsedLabel,
   statusClass,
   statusLabel,
   type Application,
@@ -30,7 +31,8 @@ export default function TrackerView() {
     updateApplication,
     removeApplication,
   } = useApplications()
-  const { resumes } = useResume()
+  const { resume } = useResume()
+  const { versions, error: versionError, saveVersion } = useVersions()
   const [modal, setModal] = useState<ModalState>({ mode: 'closed' })
 
   const stats = useMemo(
@@ -49,13 +51,27 @@ export default function TrackerView() {
     [applications],
   )
 
-  const resumeTitle = (id: string) =>
-    resumes.find((r) => r.id === id)?.title ?? '—'
+  const versionDate = (id: string | null) => {
+    const v = versions.find((x) => x.id === id)
+    return v ? formatApplied(v.createdAt.slice(0, 10)) : null
+  }
 
-  function handleSave(draft: ApplicationDraft) {
-    if (modal.mode === 'edit') updateApplication(modal.application.id, draft)
-    else addApplication(draft)
+  async function handleSave(draft: ApplicationDraft, snapshotNow: boolean) {
+    const editing = modal.mode === 'edit' ? modal.application : null
     setModal({ mode: 'closed' })
+    let toSave = draft
+    if (snapshotNow && resume) {
+      // Freeze the resume first, then link to the frozen copy. If the
+      // snapshot fails, don't save an application that claims a version.
+      const label = draft.role && draft.role !== '—'
+        ? `${draft.employer} — ${draft.role}`
+        : draft.employer
+      const version = await saveVersion(resume, label)
+      if (!version) return
+      toSave = { ...draft, versionId: version.id }
+    }
+    if (editing) await updateApplication(editing.id, toSave)
+    else await addApplication(toSave)
   }
 
   return (
@@ -80,7 +96,9 @@ export default function TrackerView() {
         </button>
       </div>
 
-      {error && <p className="error-banner">{error}</p>}
+      {(error || versionError) && (
+        <p className="error-banner">{error ?? versionError}</p>
+      )}
 
       <div className="stat-row">
         {stats.map((s) => (
@@ -144,7 +162,14 @@ export default function TrackerView() {
                       {statusLabel(app)}
                     </span>
                   </td>
-                  <td className="app-resume">{resumeTitle(app.resumeId)}</td>
+                  <td className="app-resume">
+                    {resumeUsedLabel(app, versions)}
+                    {versionDate(app.versionId) && (
+                      <span className="app-resume-date">
+                        {` · saved ${versionDate(app.versionId)}`}
+                      </span>
+                    )}
+                  </td>
                   <td className="app-date">{formatApplied(app.appliedAt)}</td>
                   <td>
                     <div className="row-actions">
@@ -180,7 +205,8 @@ export default function TrackerView() {
       {modal.mode !== 'closed' && (
         <ApplicationModal
           application={modal.mode === 'edit' ? modal.application : undefined}
-          resumes={resumes}
+          versions={versions}
+          canSnapshot={Boolean(resume)}
           onSave={handleSave}
           onClose={() => setModal({ mode: 'closed' })}
         />

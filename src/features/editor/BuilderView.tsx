@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useBlockLibrary, useResume } from '../../store'
+import { useBlockLibrary, useResume, useVersions } from '../../store'
 import {
   BUILT_IN_SECTION_TYPES,
   SECTION_LABELS,
@@ -10,6 +10,8 @@ import AtsPanel from '../ats/AtsPanel'
 import BlockLibraryPanel from './BlockLibraryPanel'
 import BlockList from './BlockList'
 import SaveBlockModal from './SaveBlockModal'
+import SaveVersionModal from './SaveVersionModal'
+import VersionsPanel from './VersionsPanel'
 import ProfileEditor from './ProfileEditor'
 import TemplatePicker from './TemplatePicker'
 import ResumePaper from './ResumePaper'
@@ -27,7 +29,15 @@ export default function BuilderView() {
     updateProfile,
     setTemplate,
     insertBlock,
+    replaceResume,
   } = useResume()
+  const {
+    versions,
+    loading: versionsLoading,
+    error: versionError,
+    saveVersion,
+  } = useVersions()
+  const [savingVersion, setSavingVersion] = useState(false)
   const {
     savedBlocks,
     loading: libraryLoading,
@@ -70,16 +80,28 @@ export default function BuilderView() {
               Drag to reorder. Toggle to show or hide on the resume.
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setAtsOpen(true)}
-          >
-            ATS check
-          </button>
+          <div className="pane-head-actions">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={!resume}
+              onClick={() => setSavingVersion(true)}
+            >
+              Save version
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setAtsOpen(true)}
+            >
+              ATS check
+            </button>
+          </div>
         </div>
 
-        {error && <p className="error-banner">{error}</p>}
+        {(error || versionError) && (
+          <p className="error-banner">{error ?? versionError}</p>
+        )}
 
         {resume && (
           <>
@@ -150,6 +172,15 @@ export default function BuilderView() {
           onInsert={insertBlock}
           onRemove={removeSavedBlock}
         />
+        <VersionsPanel
+          versions={versions}
+          loading={versionsLoading}
+          onRestore={(v) => {
+            // Keep the live resume's own identity and name; take only the
+            // version's content.
+            if (resume) replaceResume({ ...v.resume, id: resume.id, title: resume.title })
+          }}
+        />
       </section>
 
       <section className="preview-pane">
@@ -170,6 +201,20 @@ export default function BuilderView() {
             setSavingBlock(null)
           }}
           onClose={() => setSavingBlock(null)}
+        />
+      )}
+
+      {savingVersion && resume && (
+        <SaveVersionModal
+          defaultLabel={`${resume.title} — ${new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          })}`}
+          onSave={(label) => {
+            saveVersion(resume, label)
+            setSavingVersion(false)
+          }}
+          onClose={() => setSavingVersion(false)}
         />
       )}
 

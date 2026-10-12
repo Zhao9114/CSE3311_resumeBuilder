@@ -9,7 +9,7 @@ interface AtsPanelProps {
 /**
  * UI placeholder for the ATS checker.
  *
- * TODO(iteration-2): replace PLACEHOLDER_RESULT with a real
+ * TODO(iteration-3): replace PLACEHOLDER_RESULT with a real
  * atsService.analyze(resume, jobDescription) call. The contract in
  * src/services/ats.ts already matches this shape, so only this component
  * and the service implementation change — nothing else.
@@ -62,7 +62,7 @@ export default function AtsPanel({ onClose }: AtsPanelProps) {
     >
       <p className="placeholder-note">
         Placeholder. This screen shows fixed sample output and makes no network
-        request — the real analysis arrives in iteration 2.
+        request — the real analysis arrives in iteration 3.
       </p>
 
       <form id="ats-form" onSubmit={handleRun}>

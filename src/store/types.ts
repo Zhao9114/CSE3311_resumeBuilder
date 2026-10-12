@@ -3,6 +3,7 @@ import type {
   ApplicationDraft,
   Resume,
   ResumeBlock,
+  ResumeVersion,
   SavedBlock,
   SavedBlockDraft,
   SectionType,
@@ -12,11 +13,10 @@ import type {
 /**
  * Data access contract for resumes.
  *
- * Every method is async so the in-memory implementation and a future
- * network-backed one share one signature.
- *
- * TODO(iteration-2): add a SupabaseResumeStore implementing this interface.
- * Components must never reach past these methods to mutate state directly.
+ * Every method is async so the in-memory implementation (demo mode, tests)
+ * and the Supabase one share one signature, and components never learn which
+ * they are talking to. Components must never reach past these methods to
+ * mutate state directly.
  */
 export interface ResumeStore {
   list(): Promise<Resume[]>
@@ -36,11 +36,7 @@ export interface ResumeStore {
   reorderBlocks(resumeId: string, fromIndex: number, toIndex: number): Promise<Resume>
 }
 
-/**
- * Data access contract for tracked job applications.
- *
- * TODO(iteration-2): add a SupabaseApplicationStore implementing this interface.
- */
+/** Data access contract for tracked job applications. */
 export interface ApplicationStore {
   list(): Promise<Application[]>
   add(draft: ApplicationDraft): Promise<Application>
@@ -48,11 +44,7 @@ export interface ApplicationStore {
   remove(id: string): Promise<void>
 }
 
-/**
- * Saved blocks the user can reuse across resumes.
- *
- * TODO(iteration-2): add a SupabaseBlockLibraryStore implementing this.
- */
+/** Saved blocks the user can reuse across resumes. */
 export interface BlockLibraryStore {
   list(): Promise<SavedBlock[]>
   save(draft: SavedBlockDraft): Promise<SavedBlock>
@@ -61,22 +53,39 @@ export interface BlockLibraryStore {
 }
 
 /**
- * TODO(iteration-2): resume version snapshots. The tracker already records
- * which resume an application used, so snapshots slot in behind this
- * interface without touching the tracker UI.
+ * Immutable resume snapshots. There is deliberately no update or delete:
+ * an application points at a version as a record of what was sent, and
+ * that record must not change underneath it. Restoring a version is a write
+ * to the live resume (`ResumeStore.save`), never to the version.
  */
 export interface ResumeVersionStore {
-  snapshot(resumeId: string, label: string): Promise<Resume>
-  listVersions(resumeId: string): Promise<Resume[]>
-  restore(versionId: string): Promise<Resume>
+  /** Freeze a deep copy of `resume` as it stands right now. */
+  snapshot(resume: Resume, label: string): Promise<ResumeVersion>
+  /** Newest first. Pass a resume id to see only that resume's versions. */
+  list(resumeId?: string): Promise<ResumeVersion[]>
+  get(id: string): Promise<ResumeVersion | undefined>
 }
 
+export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error'
+
 /**
- * TODO(iteration-2): real auth. Iteration 1 has no users; every store call
- * runs as a single implicit local user.
+ * Optional, for stores that save in the background. The Supabase resume
+ * store returns from each edit immediately and writes a moment later, so the
+ * UI needs a separate signal for "your work is safe".
  */
-export interface AuthGateway {
-  currentUserId(): Promise<string | null>
-  signIn(email: string, password: string): Promise<string>
-  signOut(): Promise<void>
+export interface SyncStatusSource {
+  getSyncStatus(): SyncStatus
+  subscribe(listener: (status: SyncStatus) => void): () => void
+  /** Write anything still pending. Called before sign-out and page unload. */
+  flush(): Promise<void>
+}
+
+export function isSyncStatusSource(store: unknown): store is SyncStatusSource {
+  return (
+    typeof store === 'object' &&
+    store !== null &&
+    'subscribe' in store &&
+    'flush' in store &&
+    'getSyncStatus' in store
+  )
 }

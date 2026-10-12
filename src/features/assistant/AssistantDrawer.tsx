@@ -13,11 +13,11 @@ const nextId = () => `m${++seq}`
  * Scripted stand-in for the resume assistant. Replies are canned and no
  * network request is made.
  *
- * TODO(iteration-2): call assistantService.send() and render the blocks it
+ * TODO(iteration-3): call assistantService.send() and render the blocks it
  * returns in `proposed`, with an Insert action per block.
  */
 const SCRIPTED_REPLY =
-  'Placeholder response. In iteration 2 this will call a model and offer ' +
+  'Placeholder response. In iteration 3 this will call a model and offer ' +
   'generated blocks you can insert straight into the resume.'
 
 const SUGGESTIONS = [

@@ -1,3 +1,7 @@
+import { useState } from 'react'
+import { useSyncStatus, type SyncStatus } from '../store'
+import { useOptionalAuth } from '../features/auth/AuthProvider'
+
 export type ViewKey = 'builder' | 'tracker'
 
 interface TopBarProps {
@@ -6,6 +10,13 @@ interface TopBarProps {
   onExport: () => void
   onToggleAssistant: () => void
   assistantOpen: boolean
+}
+
+const SYNC_LABELS: Record<SyncStatus, string> = {
+  idle: 'All changes saved',
+  saved: 'All changes saved',
+  saving: 'Saving…',
+  error: "Couldn't save — retrying",
 }
 
 const TABS: { key: ViewKey; label: string }[] = [
@@ -20,6 +31,23 @@ export default function TopBar({
   onToggleAssistant,
   assistantOpen,
 }: TopBarProps) {
+  const auth = useOptionalAuth()
+  const { status, flush } = useSyncStatus()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    if (!auth) return
+    setSigningOut(true)
+    try {
+      // Get any pending resume edits into the database before the session
+      // (and with it, permission to write) goes away.
+      await flush()
+      await auth.signOut()
+    } finally {
+      setSigningOut(false)
+    }
+  }
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -55,7 +83,32 @@ export default function TopBar({
         <button type="button" className="btn btn-ghost" onClick={onExport}>
           Export PDF
         </button>
-        <span className="demo-pill">Demo data</span>
+        {auth?.user ? (
+          <>
+            {status && (
+              <span
+                className={`sync-pill sync-${status}`}
+                role="status"
+                aria-live="polite"
+              >
+                {SYNC_LABELS[status]}
+              </span>
+            )}
+            <span className="account-email" title={auth.user.email}>
+              {auth.user.email}
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
+          </>
+        ) : (
+          <span className="demo-pill">Demo data</span>
+        )}
       </div>
     </header>
   )

@@ -1,9 +1,11 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
 import type {
@@ -11,6 +13,7 @@ import type {
   ApplicationDraft,
   Resume,
   ResumeBlock,
+  ResumeVersion,
   SavedBlock,
   SavedBlockDraft,
   SectionType,
@@ -20,45 +23,73 @@ import {
   InMemoryApplicationStore,
   InMemoryBlockLibraryStore,
   InMemoryResumeStore,
+  InMemoryResumeVersionStore,
 } from './memoryStore'
-import type { ApplicationStore, BlockLibraryStore, ResumeStore } from './types'
+import {
+  isSyncStatusSource,
+  type ApplicationStore,
+  type BlockLibraryStore,
+  type ResumeStore,
+  type ResumeVersionStore,
+  type SyncStatus,
+} from './types'
 
-interface StoreContextValue {
+export interface StoreSet {
   resumeStore: ResumeStore
   applicationStore: ApplicationStore
   blockLibraryStore: BlockLibraryStore
+  versionStore: ResumeVersionStore
 }
 
-const StoreContext = createContext<StoreContextValue | null>(null)
+const StoreContext = createContext<StoreSet | null>(null)
 
-interface StoreProviderProps {
+interface StoreProviderProps extends Partial<StoreSet> {
   children: ReactNode
-  /** Injectable for tests; defaults to the in-memory implementations. */
-  resumeStore?: ResumeStore
-  applicationStore?: ApplicationStore
-  blockLibraryStore?: BlockLibraryStore
 }
 
+/**
+ * Supplies the data stores to every hook below it. With no props it uses the
+ * in-memory stores (demo mode, tests); `main.tsx` passes Supabase-backed ones
+ * once a user is signed in. Components can't tell the difference.
+ */
 export function StoreProvider({
   children,
   resumeStore,
   applicationStore,
   blockLibraryStore,
+  versionStore,
 }: StoreProviderProps) {
-  // TODO(iteration-2): swap these for Supabase-backed stores.
-  const value = useMemo<StoreContextValue>(
+  const value = useMemo<StoreSet>(
     () => ({
       resumeStore: resumeStore ?? new InMemoryResumeStore(),
       applicationStore: applicationStore ?? new InMemoryApplicationStore(),
       blockLibraryStore: blockLibraryStore ?? new InMemoryBlockLibraryStore(),
+      versionStore: versionStore ?? new InMemoryResumeVersionStore(),
     }),
-    [resumeStore, applicationStore, blockLibraryStore],
+    [resumeStore, applicationStore, blockLibraryStore, versionStore],
   )
+
+  // A background-saving store may still hold edits when the tab closes.
+  // Start the write and ask the browser to confirm leaving.
+  useEffect(() => {
+    const store = value.resumeStore
+    if (!isSyncStatusSource(store)) return
+    const source = store
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      const status = source.getSyncStatus()
+      if (status === 'saving' || status === 'error') {
+        void source.flush()
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [value.resumeStore])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 
-function useStores(): StoreContextValue {
+function useStores(): StoreSet {
   const ctx = useContext(StoreContext)
   if (!ctx) throw new Error('useStores must be used inside a StoreProvider')
   return ctx
@@ -77,24 +108,35 @@ export interface UseResumeResult {
   insertBlock: (block: Omit<ResumeBlock, 'id'>) => Promise<void>
   updateProfile: (patch: Partial<Resume['profile']>) => Promise<void>
   setTemplate: (templateId: TemplateId) => Promise<void>
+  /** Replace the whole resume, e.g. with a restored version's content. */
+  replaceResume: (next: Resume) => Promise<void>
 }
 
-/** Reads and mutates the active resume. All writes go through ResumeStore. */
-export function useResume(resumeId = 'r1'): UseResumeResult {
+/**
+ * Reads and mutates the active resume. All writes go through ResumeStore.
+ *
+ * With no id it opens the user's first resume: in Supabase mode ids are
+ * assigned by the database, so there is no fixed id to ask for.
+ */
+export function useResume(resumeId?: string): UseResumeResult {
   const { resumeStore } = useStores()
   const [resumes, setResumes] = useState<Resume[]>([])
   const [resume, setResume] = useState<Resume | undefined>()
+  const [activeId, setActiveId] = useState<string | undefined>(resumeId)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    Promise.all([resumeStore.list(), resumeStore.get(resumeId)])
-      .then(([all, one]) => {
+    resumeStore
+      .list()
+      .then((all) => {
         if (cancelled) return
+        const id = resumeId ?? all[0]?.id
         setResumes(all)
-        setResume(one)
+        setActiveId(id)
+        setResume(all.find((r) => r.id === id))
         setError(null)
       })
       .catch((e: unknown) => {
@@ -109,9 +151,10 @@ export function useResume(resumeId = 'r1'): UseResumeResult {
   }, [resumeStore, resumeId])
 
   const api = useMemo(() => {
-    const apply = async (op: Promise<Resume>) => {
+    const apply = async (run: (id: string) => Promise<Resume>) => {
       try {
-        const next = await op
+        if (!activeId) throw new Error('No resume is open yet')
+        const next = await run(activeId)
         setResume(next)
         setResumes((prev) => prev.map((r) => (r.id === next.id ? next : r)))
         setError(null)
@@ -121,21 +164,22 @@ export function useResume(resumeId = 'r1'): UseResumeResult {
     }
     return {
       addBlock: (type: SectionType, title?: string) =>
-        apply(resumeStore.addBlock(resumeId, type, title)),
-      removeBlock: (blockId: string) => apply(resumeStore.removeBlock(resumeId, blockId)),
-      updateBlock: (block: ResumeBlock) => apply(resumeStore.updateBlock(resumeId, block)),
+        apply((id) => resumeStore.addBlock(id, type, title)),
+      removeBlock: (blockId: string) => apply((id) => resumeStore.removeBlock(id, blockId)),
+      updateBlock: (block: ResumeBlock) => apply((id) => resumeStore.updateBlock(id, block)),
       toggleBlock: (blockId: string, enabled: boolean) =>
-        apply(resumeStore.toggleBlock(resumeId, blockId, enabled)),
+        apply((id) => resumeStore.toggleBlock(id, blockId, enabled)),
       reorderBlocks: (fromIndex: number, toIndex: number) =>
-        apply(resumeStore.reorderBlocks(resumeId, fromIndex, toIndex)),
+        apply((id) => resumeStore.reorderBlocks(id, fromIndex, toIndex)),
       insertBlock: (block: Omit<ResumeBlock, 'id'>) =>
-        apply(resumeStore.insertBlock(resumeId, block)),
+        apply((id) => resumeStore.insertBlock(id, block)),
       updateProfile: (patch: Partial<Resume['profile']>) =>
-        apply(resumeStore.updateProfile(resumeId, patch)),
+        apply((id) => resumeStore.updateProfile(id, patch)),
       setTemplate: (templateId: TemplateId) =>
-        apply(resumeStore.setTemplate(resumeId, templateId)),
+        apply((id) => resumeStore.setTemplate(id, templateId)),
+      replaceResume: (next: Resume) => apply((id) => resumeStore.save({ ...next, id })),
     }
-  }, [resumeStore, resumeId])
+  }, [resumeStore, activeId])
 
   return { resume, resumes, loading, error, ...api }
 }
@@ -256,4 +300,79 @@ export function useBlockLibrary(): UseBlockLibraryResult {
   }, [blockLibraryStore])
 
   return { savedBlocks, loading, error, ...api }
+}
+
+export interface UseVersionsResult {
+  versions: ResumeVersion[]
+  loading: boolean
+  error: string | null
+  /** Freeze `resume` as a new version. Resolves to it, or undefined on failure. */
+  saveVersion: (resume: Resume, label: string) => Promise<ResumeVersion | undefined>
+}
+
+/** Lists the user's resume versions, newest first, and saves new ones. */
+export function useVersions(): UseVersionsResult {
+  const { versionStore } = useStores()
+  const [versions, setVersions] = useState<ResumeVersion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    versionStore
+      .list()
+      .then((all) => {
+        if (!cancelled) {
+          setVersions(all)
+          setError(null)
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load versions')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [versionStore])
+
+  const saveVersion = useCallback(
+    async (resume: Resume, label: string) => {
+      try {
+        const created = await versionStore.snapshot(resume, label)
+        setVersions((prev) => [created, ...prev])
+        setError(null)
+        return created
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Saving the version failed')
+        return undefined
+      }
+    },
+    [versionStore],
+  )
+
+  return { versions, loading, error, saveVersion }
+}
+
+const noopSubscribe = () => () => {}
+
+/**
+ * The background-save state of the resume store, or null when the store
+ * saves synchronously (in-memory demo mode) and there is nothing to show.
+ */
+export function useSyncStatus(): { status: SyncStatus | null; flush: () => Promise<void> } {
+  const { resumeStore } = useStores()
+  const source = isSyncStatusSource(resumeStore) ? resumeStore : null
+  const subscribe = useCallback(
+    (cb: () => void) => (source ? source.subscribe(cb) : noopSubscribe()),
+    [source],
+  )
+  const status = useSyncExternalStore(subscribe, () =>
+    source ? source.getSyncStatus() : null,
+  )
+  const flush = useCallback(() => (source ? source.flush() : Promise.resolve()), [source])
+  return { status, flush }
 }

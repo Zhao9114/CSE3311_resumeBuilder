@@ -1,5 +1,11 @@
-import type { Application, Resume, ResumeBlock, SectionType } from '../types'
-import { DEFAULT_TEMPLATE, SECTION_LABELS } from '../types'
+import type {
+  Application,
+  Resume,
+  ResumeBlock,
+  ResumeVersion,
+  SectionType,
+} from '../types'
+import { BUILT_IN_SECTION_TYPES, DEFAULT_TEMPLATE, SECTION_LABELS } from '../types'
 
 export const seedResume: Resume = {
   id: 'r1',
@@ -100,21 +106,45 @@ export const seedResume: Resume = {
   ],
 }
 
-/** Alternate resume versions you could have applied with. */
-export const seedResumes: Resume[] = [
-  seedResume,
-  { ...seedResume, id: 'r2', title: 'Backend-focused' },
-  { ...seedResume, id: 'r3', title: 'Frontend-focused' },
+/** The demo user's one live resume. Tailored copies live as versions. */
+export const seedResumes: Resume[] = [seedResume]
+
+/**
+ * Frozen demo versions, as if the user had saved one per tailoring pass.
+ * Each is a full copy taken from the live resume `r1`.
+ */
+export const seedVersions: ResumeVersion[] = [
+  { id: 'v1', resumeId: 'r1', label: 'General SWE — v2', createdAt: '2026-07-15T12:00:00.000Z', resume: { ...seedResume, title: 'General SWE — v2' } },
+  { id: 'v2', resumeId: 'r1', label: 'Backend-focused', createdAt: '2026-08-10T12:00:00.000Z', resume: { ...seedResume, title: 'Backend-focused' } },
+  { id: 'v3', resumeId: 'r1', label: 'Frontend-focused', createdAt: '2026-08-01T12:00:00.000Z', resume: { ...seedResume, title: 'Frontend-focused' } },
 ]
 
 export const seedApplications: Application[] = [
-  { id: 'a1', employer: 'Stripe', role: 'Backend Intern', status: 'Interview', resumeId: 'r2', appliedAt: '2026-08-14' },
-  { id: 'a2', employer: 'Figma', role: 'Frontend Intern', status: 'Applied', resumeId: 'r3', appliedAt: '2026-08-20' },
-  { id: 'a3', employer: 'Vercel', role: 'SWE Intern', status: 'Accepted', resumeId: 'r1', appliedAt: '2026-07-30' },
-  { id: 'a4', employer: 'Datadog', role: 'Software Engineer', status: 'Rejected', resumeId: 'r1', appliedAt: '2026-07-18' },
-  { id: 'a5', employer: 'Supabase', role: 'Developer Advocate', status: 'Waitlist', resumeId: 'r3', appliedAt: '2026-08-02' },
-  { id: 'a6', employer: 'Local Startup', role: 'Full-stack (contract)', status: 'Custom', customStatus: 'Take-home sent', resumeId: 'r2', appliedAt: '2026-08-22' },
+  { id: 'a1', employer: 'Stripe', role: 'Backend Intern', status: 'Interview', versionId: 'v2', appliedAt: '2026-08-14' },
+  { id: 'a2', employer: 'Figma', role: 'Frontend Intern', status: 'Applied', versionId: 'v3', appliedAt: '2026-08-20' },
+  { id: 'a3', employer: 'Vercel', role: 'SWE Intern', status: 'Accepted', versionId: 'v1', appliedAt: '2026-07-30' },
+  { id: 'a4', employer: 'Datadog', role: 'Software Engineer', status: 'Rejected', versionId: 'v1', appliedAt: '2026-07-18' },
+  { id: 'a5', employer: 'Supabase', role: 'Developer Advocate', status: 'Waitlist', versionId: 'v3', appliedAt: '2026-08-02' },
+  { id: 'a6', employer: 'Local Startup', role: 'Full-stack (contract)', status: 'Custom', customStatus: 'Take-home sent', versionId: 'v2', appliedAt: '2026-08-22' },
 ]
+
+/**
+ * The resume a brand-new signed-in user starts with: their own blank
+ * profile and one placeholder block per built-in section — never the demo
+ * person's content. The id is a placeholder; the database assigns the real one.
+ */
+export function starterResume(): Omit<Resume, 'id'> {
+  return {
+    title: 'My resume',
+    templateId: DEFAULT_TEMPLATE,
+    profile: { name: 'Your Name', title: '', email: '', phone: '', location: '', links: '' },
+    blocks: BUILT_IN_SECTION_TYPES.map((type, i) => {
+      const block = blankBlock(type, `b${i + 1}`)
+      // Projects start hidden so a fresh resume previews as a sensible page.
+      return type === 'projects' ? { ...block, enabled: false } : block
+    }),
+  }
+}
 
 /**
  * Starter content used when adding a fresh section from the chip row.

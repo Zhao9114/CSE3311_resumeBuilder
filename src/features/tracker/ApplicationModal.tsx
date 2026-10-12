@@ -5,22 +5,38 @@ import {
   type Application,
   type ApplicationDraft,
   type ApplicationStatus,
-  type Resume,
+  type ResumeVersion,
 } from '../../types'
+
+/** Select value meaning "freeze the current resume as a new version on save". */
+export const SNAPSHOT_NOW = '__snapshot_now__'
 
 interface ApplicationModalProps {
   /** Present when editing; absent when adding. */
   application?: Application
-  resumes: Resume[]
-  onSave: (draft: ApplicationDraft) => void
+  versions: ResumeVersion[]
+  /** False until the live resume has loaded, so there is nothing to snapshot. */
+  canSnapshot: boolean
+  /**
+   * `snapshotNow` asks the caller to save a new version first and link the
+   * application to it; `draft.versionId` is ignored in that case.
+   */
+  onSave: (draft: ApplicationDraft, snapshotNow: boolean) => void
   onClose: () => void
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => {
+  const now = new Date()
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
+}
+
+const savedOn = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 export default function ApplicationModal({
   application,
-  resumes,
+  versions,
+  canSnapshot,
   onSave,
   onClose,
 }: ApplicationModalProps) {
@@ -31,8 +47,10 @@ export default function ApplicationModal({
     application?.status ?? 'Applied',
   )
   const [customStatus, setCustomStatus] = useState(application?.customStatus ?? '')
-  const [resumeId, setResumeId] = useState(
-    application?.resumeId ?? resumes[0]?.id ?? '',
+  // A new application defaults to snapshotting the resume as it is now —
+  // the honest answer to "which resume did I send?" when applying today.
+  const [versionChoice, setVersionChoice] = useState<string>(
+    application ? application.versionId ?? '' : canSnapshot ? SNAPSHOT_NOW : versions[0]?.id ?? '',
   )
   const [appliedAt, setAppliedAt] = useState(application?.appliedAt ?? today())
   const [touched, setTouched] = useState(false)
@@ -48,14 +66,18 @@ export default function ApplicationModal({
     e.preventDefault()
     setTouched(true)
     if (!valid) return
-    onSave({
-      employer: employer.trim(),
-      role: role.trim() || '—',
-      status,
-      ...(status === 'Custom' ? { customStatus: customStatus.trim() } : {}),
-      resumeId,
-      appliedAt,
-    })
+    const snapshotNow = versionChoice === SNAPSHOT_NOW
+    onSave(
+      {
+        employer: employer.trim(),
+        role: role.trim() || '—',
+        status,
+        ...(status === 'Custom' ? { customStatus: customStatus.trim() } : {}),
+        versionId: snapshotNow || versionChoice === '' ? null : versionChoice,
+        appliedAt,
+      },
+      snapshotNow,
+    )
   }
 
   return (
@@ -136,13 +158,17 @@ export default function ApplicationModal({
 
         <div className="field-row">
           <label className="field">
-            <span>Resume used</span>
-            <select value={resumeId} onChange={(e) => setResumeId(e.target.value)}>
-              {resumes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
+            <span>Resume version sent</span>
+            <select value={versionChoice} onChange={(e) => setVersionChoice(e.target.value)}>
+              {canSnapshot && (
+                <option value={SNAPSHOT_NOW}>Snapshot current resume now</option>
+              )}
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label} — saved {savedOn(v.createdAt)}
                 </option>
               ))}
+              <option value="">None recorded</option>
             </select>
           </label>
 

@@ -24,7 +24,12 @@ export interface Application {
   status: ApplicationStatus
   /** Set only when `status` is 'Custom'. */
   customStatus?: string
-  resumeId: string
+  /**
+   * The resume version (snapshot) sent with this application. It points at a
+   * frozen version rather than the live resume, so editing the resume later
+   * cannot rewrite history. Null when no version was recorded.
+   */
+  versionId: string | null
   /** ISO date, yyyy-mm-dd. */
   appliedAt: string
 }

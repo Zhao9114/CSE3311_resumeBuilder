@@ -19,7 +19,7 @@ export interface AssistantService {
 }
 
 /**
- * TODO(iteration-2): implement against an LLM call routed through a
+ * TODO(iteration-3): implement against an LLM call routed through a
  * serverless function, returning generated blocks in `proposed`.
  *
  * Iteration 1 ships scripted replies and makes no network request. The
@@ -29,7 +29,7 @@ export interface AssistantService {
 export const assistantService: AssistantService = {
   send() {
     return Promise.reject(
-      new Error('The resume assistant is not available in iteration 1'),
+      new Error('The resume assistant is not available until iteration 3'),
     )
   },
 }
