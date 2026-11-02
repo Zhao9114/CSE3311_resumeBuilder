@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -25,6 +26,7 @@ import {
   InMemoryResumeStore,
   InMemoryResumeVersionStore,
 } from './memoryStore'
+import * as ops from './resumeOps'
 import {
   isSyncStatusSource,
   type ApplicationStore,
@@ -86,7 +88,11 @@ export function StoreProvider({
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [value.resumeStore])
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+  return (
+    <StoreContext.Provider value={value}>
+      <ResumeSession>{children}</ResumeSession>
+    </StoreContext.Provider>
+  )
 }
 
 function useStores(): StoreSet {
@@ -100,25 +106,43 @@ export interface UseResumeResult {
   resumes: Resume[]
   loading: boolean
   error: string | null
-  addBlock: (type: SectionType, title?: string) => Promise<void>
+  addBlock: (type: SectionType, title?: string, atIndex?: number) => Promise<void>
   removeBlock: (blockId: string) => Promise<void>
   updateBlock: (block: ResumeBlock) => Promise<void>
   toggleBlock: (blockId: string, enabled: boolean) => Promise<void>
   reorderBlocks: (fromIndex: number, toIndex: number) => Promise<void>
-  insertBlock: (block: Omit<ResumeBlock, 'id'>) => Promise<void>
+  insertBlock: (block: Omit<ResumeBlock, 'id'>, atIndex?: number) => Promise<void>
   updateProfile: (patch: Partial<Resume['profile']>) => Promise<void>
   setTemplate: (templateId: TemplateId) => Promise<void>
   /** Replace the whole resume, e.g. with a restored version's content. */
   replaceResume: (next: Resume) => Promise<void>
 }
 
+const ResumeContext = createContext<UseResumeResult | null>(null)
+
 /**
- * Reads and mutates the active resume. All writes go through ResumeStore.
- *
- * With no id it opens the user's first resume: in Supabase mode ids are
- * assigned by the database, so there is no fixed id to ask for.
+ * One shared copy of the open resume for the whole app. The builder, the
+ * tracker and the assistant drawer are on screen together, so an edit made
+ * in one (say, inserting a block the assistant wrote) must show in the
+ * others at once — separate copies would each hold their own stale state.
  */
-export function useResume(resumeId?: string): UseResumeResult {
+function ResumeSession({ children }: { children: ReactNode }) {
+  const session = useResumeState()
+  return <ResumeContext.Provider value={session}>{children}</ResumeContext.Provider>
+}
+
+/** Reads and mutates the active resume. All writes go through ResumeStore. */
+export function useResume(): UseResumeResult {
+  const ctx = useContext(ResumeContext)
+  if (!ctx) throw new Error('useResume must be used inside a StoreProvider')
+  return ctx
+}
+
+/**
+ * Opens the user's first resume: in Supabase mode ids are assigned by the
+ * database, so there is no fixed id to ask for.
+ */
+function useResumeState(resumeId?: string): UseResumeResult {
   const { resumeStore } = useStores()
   const [resumes, setResumes] = useState<Resume[]>([])
   const [resume, setResume] = useState<Resume | undefined>()
@@ -150,11 +174,25 @@ export function useResume(resumeId?: string): UseResumeResult {
     }
   }, [resumeStore, resumeId])
 
+  // Bumped on every edit, so a store reply that a newer edit has already
+  // overtaken is dropped instead of briefly putting older text back.
+  const latestEdit = useRef(0)
+
   const api = useMemo(() => {
-    const apply = async (run: (id: string) => Promise<Resume>) => {
+    /**
+     * `optimistic` applies the same pure edit to the on-screen copy at once.
+     * Form fields read their value from this resume; if it only changed after
+     * the store's promise settled, React would reset each field to the old
+     * value first and the caret would jump to the end on every keystroke.
+     * Adds and inserts skip it: the store assigns their ids.
+     */
+    const apply = async (run: (id: string) => Promise<Resume>, optimistic?: (r: Resume) => Resume) => {
+      const ticket = ++latestEdit.current
+      if (optimistic) setResume((prev) => (prev ? optimistic(prev) : prev))
       try {
         if (!activeId) throw new Error('No resume is open yet')
         const next = await run(activeId)
+        if (ticket !== latestEdit.current) return
         setResume(next)
         setResumes((prev) => prev.map((r) => (r.id === next.id ? next : r)))
         setError(null)
@@ -163,25 +201,37 @@ export function useResume(resumeId?: string): UseResumeResult {
       }
     }
     return {
-      addBlock: (type: SectionType, title?: string) =>
-        apply((id) => resumeStore.addBlock(id, type, title)),
-      removeBlock: (blockId: string) => apply((id) => resumeStore.removeBlock(id, blockId)),
-      updateBlock: (block: ResumeBlock) => apply((id) => resumeStore.updateBlock(id, block)),
+      addBlock: (type: SectionType, title?: string, atIndex?: number) =>
+        apply((id) => resumeStore.addBlock(id, type, title, atIndex)),
+      removeBlock: (blockId: string) =>
+        apply((id) => resumeStore.removeBlock(id, blockId), (r) => ops.removeBlock(r, blockId)),
+      updateBlock: (block: ResumeBlock) =>
+        apply((id) => resumeStore.updateBlock(id, block), (r) => ops.updateBlock(r, block)),
       toggleBlock: (blockId: string, enabled: boolean) =>
-        apply((id) => resumeStore.toggleBlock(id, blockId, enabled)),
+        apply(
+          (id) => resumeStore.toggleBlock(id, blockId, enabled),
+          (r) => ops.toggleBlock(r, blockId, enabled),
+        ),
       reorderBlocks: (fromIndex: number, toIndex: number) =>
-        apply((id) => resumeStore.reorderBlocks(id, fromIndex, toIndex)),
-      insertBlock: (block: Omit<ResumeBlock, 'id'>) =>
-        apply((id) => resumeStore.insertBlock(id, block)),
+        apply(
+          (id) => resumeStore.reorderBlocks(id, fromIndex, toIndex),
+          (r) => ops.reorderBlocks(r, fromIndex, toIndex),
+        ),
+      insertBlock: (block: Omit<ResumeBlock, 'id'>, atIndex?: number) =>
+        apply((id) => resumeStore.insertBlock(id, block, atIndex)),
       updateProfile: (patch: Partial<Resume['profile']>) =>
-        apply((id) => resumeStore.updateProfile(id, patch)),
+        apply((id) => resumeStore.updateProfile(id, patch), (r) => ops.updateProfile(r, patch)),
       setTemplate: (templateId: TemplateId) =>
-        apply((id) => resumeStore.setTemplate(id, templateId)),
-      replaceResume: (next: Resume) => apply((id) => resumeStore.save({ ...next, id })),
+        apply((id) => resumeStore.setTemplate(id, templateId), (r) => ops.setTemplate(r, templateId)),
+      replaceResume: (next: Resume) =>
+        apply((id) => resumeStore.save({ ...next, id }), (r) => ({ ...structuredClone(next), id: r.id })),
     }
   }, [resumeStore, activeId])
 
-  return { resume, resumes, loading, error, ...api }
+  return useMemo(
+    () => ({ resume, resumes, loading, error, ...api }),
+    [resume, resumes, loading, error, api],
+  )
 }
 
 export interface UseApplicationsResult {

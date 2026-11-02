@@ -156,21 +156,23 @@
 .template-picker { margin-bottom: 16px; }
 .template-picker > span {
   display: block;
-  font-size: 13px;
-  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
   margin-bottom: 8px;
 }
 .template-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .template-option {
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
-  padding: 7px 13px;
+  padding: 6px 13px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: var(--paper);
+  background: var(--surface);
   color: var(--ink-soft);
   cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
 }
 .template-option:hover { border-color: var(--accent); color: var(--accent-ink); }
 .template-option[aria-pressed='true'] {

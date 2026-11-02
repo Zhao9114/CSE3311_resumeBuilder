@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useApplications, useResume, useVersions } from '../../store'
 import {
@@ -92,6 +93,7 @@ export default function TrackerView() {
           className="btn btn-primary"
           onClick={() => setModal({ mode: 'add' })}
         >
+          <Plus size={16} aria-hidden="true" />
           Add application
         </button>
       </div>

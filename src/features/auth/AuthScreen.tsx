@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ThemeToggle from '../../components/ThemeToggle'
 import { useAuth } from './AuthProvider'
 
 type Mode = 'signIn' | 'signUp'
@@ -57,6 +58,7 @@ export default function AuthScreen() {
 
   return (
     <main className="auth-screen">
+      <ThemeToggle />
       <div className="auth-card">
         <div className="brand auth-brand">
           <span className="brand-mark" aria-hidden="true">

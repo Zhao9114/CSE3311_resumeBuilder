@@ -56,12 +56,12 @@ export class InMemoryResumeStore implements ResumeStore {
     return this.apply(resumeId, (r) => ops.setTemplate(r, templateId))
   }
 
-  addBlock(resumeId: string, type: SectionType, title?: string): Promise<Resume> {
-    return this.apply(resumeId, (r) => ops.addBlock(r, type, title))
+  addBlock(resumeId: string, type: SectionType, title?: string, atIndex?: number): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.addBlock(r, type, title, atIndex))
   }
 
-  insertBlock(resumeId: string, block: Omit<ResumeBlock, 'id'>): Promise<Resume> {
-    return this.apply(resumeId, (r) => ops.insertBlock(r, block))
+  insertBlock(resumeId: string, block: Omit<ResumeBlock, 'id'>, atIndex?: number): Promise<Resume> {
+    return this.apply(resumeId, (r) => ops.insertBlock(r, block, atIndex))
   }
 
   removeBlock(resumeId: string, blockId: string): Promise<Resume> {

@@ -142,6 +142,40 @@ describe.skipIf(!configured)('row-level security', () => {
       expect(data ?? []).toEqual([])
     }
   })
+
+  // Iteration 3: the AI usage ledger drives rate limits and the spend cap,
+  // so no browser session may read it, write to it, or call its functions —
+  // otherwise a user could grant themselves a bigger allowance.
+  it('no browser session can read or write the AI usage ledger', async () => {
+    for (const client of [anon, alice]) {
+      const read = await client.from('ai_usage').select('id').limit(1)
+      expect(read.data ?? []).toEqual([])
+
+      const write = await client.from('ai_usage').insert({ identity: 'user:forged', route: 'ats', cost_usd: -100 })
+      expect(write.error).not.toBeNull()
+    }
+  })
+
+  it('no browser session can call the limiter functions', async () => {
+    for (const client of [anon, alice]) {
+      const consume = await client.rpc('ai_try_consume', {
+        p_identity: 'user:forged',
+        p_route: 'ats',
+        p_daily_limit: 1000,
+        p_minute_limit: 1000,
+        p_budget_usd: 1000,
+      })
+      expect(consume.error).not.toBeNull()
+
+      const record = await client.rpc('ai_record_usage', {
+        p_usage_id: 1,
+        p_input_tokens: 0,
+        p_output_tokens: 0,
+        p_cost_usd: -100,
+      })
+      expect(record.error).not.toBeNull()
+    }
+  })
 })
 
 describe.skipIf(configured)('row-level security (not configured)', () => {

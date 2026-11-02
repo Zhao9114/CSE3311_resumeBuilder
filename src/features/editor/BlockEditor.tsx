@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { moveItem } from '../../store/resumeOps'
+import SortableList from './SortableList'
 import type {
   CustomEntry,
   EducationItem,
@@ -41,9 +43,17 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
 
       return (
         <>
-          {items.map((item, i) => (
-            <fieldset className="sub-item" key={i}>
+          <SortableList
+            items={items}
+            onMove={(from, to) => setItems(moveItem(items, from, to))}
+            describe={(item, i) => `role ${i + 1}${item.role ? `: ${item.role}` : ''}`}
+            renderItem={(item, i, handle) => (
+            <fieldset className="sub-item">
               <legend className="visually-hidden">Role {i + 1}</legend>
+              <div className="sub-item-head">
+                {handle}
+                <span>Role {i + 1}</span>
+              </div>
               <label className="field">
                 <span>Role</span>
                 <input
@@ -71,6 +81,22 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                 points={item.points}
                 onCommit={(points) => patch(i, { points })}
               />
+              {item.points.length > 1 && (
+                <div className="bullet-order">
+                  <span className="bullet-order-label">Drag to reorder bullets</span>
+                  <SortableList
+                    items={item.points}
+                    onMove={(from, to) => patch(i, { points: moveItem(item.points, from, to) })}
+                    describe={(point, j) => `bullet ${j + 1}: ${point}`}
+                    renderItem={(point, _j, handle) => (
+                      <div className="bullet-row">
+                        {handle}
+                        <span>{point}</span>
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
               <button
                 type="button"
                 className="row-btn is-danger"
@@ -79,7 +105,8 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                 Remove role
               </button>
             </fieldset>
-          ))}
+            )}
+          />
           <button
             type="button"
             className="chip"
@@ -105,9 +132,17 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
 
       return (
         <>
-          {groups.map((group, i) => (
-            <fieldset className="sub-item" key={i}>
+          <SortableList
+            items={groups}
+            onMove={(from, to) => setGroups(moveItem(groups, from, to))}
+            describe={(group, i) => `skill group ${i + 1}${group.name ? `: ${group.name}` : ''}`}
+            renderItem={(group, i, handle) => (
+            <fieldset className="sub-item">
               <legend className="visually-hidden">Skill group {i + 1}</legend>
+              <div className="sub-item-head">
+                {handle}
+                <span>Skill group {i + 1}</span>
+              </div>
               <div className="field-row">
                 <label className="field">
                   <span>Category</span>
@@ -132,7 +167,8 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                 Remove group
               </button>
             </fieldset>
-          ))}
+            )}
+          />
           <button
             type="button"
             className="chip"
@@ -155,9 +191,17 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
 
       return (
         <>
-          {items.map((item, i) => (
-            <fieldset className="sub-item" key={i}>
+          <SortableList
+            items={items}
+            onMove={(from, to) => setItems(moveItem(items, from, to))}
+            describe={(item, i) => `education ${i + 1}${item.school ? `: ${item.school}` : ''}`}
+            renderItem={(item, i, handle) => (
+            <fieldset className="sub-item">
               <legend className="visually-hidden">Education {i + 1}</legend>
+              <div className="sub-item-head">
+                {handle}
+                <span>Education {i + 1}</span>
+              </div>
               <label className="field">
                 <span>School</span>
                 <input
@@ -196,7 +240,8 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                 Remove entry
               </button>
             </fieldset>
-          ))}
+            )}
+          />
           <button
             type="button"
             className="chip"
@@ -222,9 +267,17 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
 
       return (
         <>
-          {items.map((item, i) => (
-            <fieldset className="sub-item" key={i}>
+          <SortableList
+            items={items}
+            onMove={(from, to) => setItems(moveItem(items, from, to))}
+            describe={(item, i) => `project ${i + 1}${item.name ? `: ${item.name}` : ''}`}
+            renderItem={(item, i, handle) => (
+            <fieldset className="sub-item">
               <legend className="visually-hidden">Project {i + 1}</legend>
+              <div className="sub-item-head">
+                {handle}
+                <span>Project {i + 1}</span>
+              </div>
               <label className="field">
                 <span>Project name</span>
                 <input
@@ -247,7 +300,8 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                 Remove project
               </button>
             </fieldset>
-          ))}
+            )}
+          />
           <button
             type="button"
             className="chip"
@@ -279,9 +333,17 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
             />
           </label>
 
-          {items.map((item, i) => (
-            <fieldset className="sub-item" key={i}>
+          <SortableList
+            items={items}
+            onMove={(from, to) => setItems(moveItem(items, from, to))}
+            describe={(item, i) => `entry ${i + 1}${item.name ? `: ${item.name}` : ''}`}
+            renderItem={(item, i, handle) => (
+            <fieldset className="sub-item">
               <legend className="visually-hidden">Entry {i + 1}</legend>
+              <div className="sub-item-head">
+                {handle}
+                <span>Entry {i + 1}</span>
+              </div>
               <div className="field-row">
                 <label className="field">
                   <span>Name</span>
@@ -315,7 +377,8 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
                 Remove entry
               </button>
             </fieldset>
-          ))}
+            )}
+          />
           <button
             type="button"
             className="chip"

@@ -1,35 +1,61 @@
-import type { ResumeBlock, SectionType } from '../types'
+import type { Intent } from '../ai/intent'
+import { parseBlock } from '../store/normalize'
+import type { Resume, ResumeBlock } from '../types'
+import { postAi } from './aiClient'
+
+/**
+ * A block the assistant offers. Nothing touches the resume until the user
+ * accepts it: `replaces` names the block it would overwrite, or is null when
+ * accepting adds a new section.
+ */
+export interface Proposal {
+  block: ResumeBlock
+  replaces: string | null
+}
 
 export interface AssistantMessage {
   id: string
   role: 'user' | 'assistant'
   text: string
-  /** Blocks the assistant proposes adding; the user accepts or ignores them. */
-  proposed?: Omit<ResumeBlock, 'id'>[]
+  /** How the intent parser routed the request that produced this reply. */
+  intent?: Intent
+  intentSource?: 'rules' | 'model'
+  proposals?: Proposal[]
+  /** Set on an error reply, so the drawer can style it differently. */
+  error?: boolean
 }
 
 export interface AssistantRequest {
-  prompt: string
-  /** Section types already on the resume, so a reply can avoid duplicates. */
-  present: SectionType[]
+  message: string
+  resume: Resume
+  /** Earlier turns, oldest first. The server keeps only the last few. */
+  history: Pick<AssistantMessage, 'role' | 'text'>[]
+}
+
+export interface AssistantReply {
+  text: string
+  intent: Intent
+  intentSource: 'rules' | 'model'
+  proposals: Proposal[]
 }
 
 export interface AssistantService {
-  send(request: AssistantRequest): Promise<AssistantMessage>
+  send(request: AssistantRequest): Promise<AssistantReply>
 }
 
-/**
- * TODO(iteration-3): implement against an LLM call routed through a
- * serverless function, returning generated blocks in `proposed`.
- *
- * Iteration 1 ships scripted replies and makes no network request. The
- * contract above is what the real service must satisfy, so swapping it in
- * leaves the chat UI unchanged.
- */
 export const assistantService: AssistantService = {
-  send() {
-    return Promise.reject(
-      new Error('The resume assistant is not available until iteration 3'),
-    )
+  async send({ message, resume, history }) {
+    const reply = await postAi<AssistantReply>('/api/assistant', {
+      message,
+      resume,
+      history: history.slice(-4).map(({ role, text }) => ({ role, text })),
+    })
+    // The server already validated these; checking again here means a bad
+    // response can only drop a proposal, never put a broken block on screen.
+    const proposals = (reply.proposals ?? []).flatMap((p) => {
+      const block = parseBlock(p.block)
+      return block ? [{ block, replaces: typeof p.replaces === 'string' ? p.replaces : null }] : []
+    })
+    return { ...reply, proposals }
   },
 }

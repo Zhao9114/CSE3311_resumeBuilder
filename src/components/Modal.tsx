@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 
 interface ModalProps {
   title: string
@@ -17,6 +18,10 @@ const FOCUSABLE =
 export default function Modal({ title, onClose, children, footer }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  // Read through a ref: callers pass inline arrows, and re-running the effect
+  // on every parent render would yank focus back to the first field.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null
@@ -29,7 +34,7 @@ export default function Modal({ title, onClose, children, footer }: ModalProps) 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !node) return
@@ -54,7 +59,7 @@ export default function Modal({ title, onClose, children, footer }: ModalProps) 
       document.removeEventListener('keydown', onKeyDown, true)
       previouslyFocused?.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div
@@ -79,7 +84,7 @@ export default function Modal({ title, onClose, children, footer }: ModalProps) 
             onClick={onClose}
             aria-label="Close dialog"
           >
-            &times;
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="modal-body">{children}</div>

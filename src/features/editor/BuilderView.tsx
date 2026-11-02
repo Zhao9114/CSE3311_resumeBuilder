@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Save, ScanSearch } from 'lucide-react'
+import { useToast } from '../../components/Toast'
+import { useReducedMotion } from '../../components/useReducedMotion'
 import { useBlockLibrary, useResume, useVersions } from '../../store'
 import {
   BUILT_IN_SECTION_TYPES,
@@ -7,6 +10,9 @@ import {
   type SectionType,
 } from '../../types'
 import AtsPanel from '../ats/AtsPanel'
+import { useBuilderDnd } from '../dnd/BuilderDnd'
+import DropZones from '../dnd/DropZones'
+import PaletteChip from './PaletteChip'
 import BlockLibraryPanel from './BlockLibraryPanel'
 import BlockList from './BlockList'
 import SaveBlockModal from './SaveBlockModal'
@@ -25,7 +31,6 @@ export default function BuilderView() {
     removeBlock,
     updateBlock,
     toggleBlock,
-    reorderBlocks,
     updateProfile,
     setTemplate,
     insertBlock,
@@ -50,6 +55,28 @@ export default function BuilderView() {
   // Set when a custom section is added, so its editor can be opened as soon
   // as the new block appears in the resume.
   const [pendingCustom, setPendingCustom] = useState<Set<string> | null>(null)
+  const { previewBlocks, justMovedId, recordUndo, undo } = useBuilderDnd()
+  const toast = useToast()
+  const reducedMotion = useReducedMotion()
+
+  // While dragging, the paper shows the order the drop would produce.
+  const shown = resume && previewBlocks ? { ...resume, blocks: previewBlocks } : resume
+
+  // Bring a section that just moved or arrived into view on the paper.
+  useEffect(() => {
+    if (!justMovedId) return
+    document
+      .querySelector(`.paper [data-block-id="${CSS.escape(justMovedId)}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' })
+  }, [justMovedId, reducedMotion])
+
+  function handleRemove(id: string) {
+    const block = resume?.blocks.find((b) => b.id === id)
+    if (!block) return
+    recordUndo(`removed ${block.label}`)
+    void removeBlock(id)
+    toast({ message: `Removed ${block.label}`, action: { label: 'Undo', run: undo } })
+  }
 
   const present = new Set<SectionType>(resume?.blocks.map((b) => b.type) ?? [])
 
@@ -87,6 +114,7 @@ export default function BuilderView() {
               disabled={!resume}
               onClick={() => setSavingVersion(true)}
             >
+              <Save size={14} aria-hidden="true" />
               Save version
             </button>
             <button
@@ -94,6 +122,7 @@ export default function BuilderView() {
               className="btn btn-primary btn-sm"
               onClick={() => setAtsOpen(true)}
             >
+              <ScanSearch size={14} aria-hidden="true" />
               ATS check
             </button>
           </div>
@@ -110,16 +139,11 @@ export default function BuilderView() {
           </>
         )}
 
-        {loading ? (
+        {loading || !resume ? (
           <div aria-busy="true" aria-label="Loading sections">
             <div className="skeleton" style={{ height: 48 }} />
             <div className="skeleton" style={{ height: 48 }} />
             <div className="skeleton" style={{ height: 48 }} />
-          </div>
-        ) : !resume || resume.blocks.length === 0 ? (
-          <div className="empty">
-            <h3>No sections yet</h3>
-            <p>Add your first section to start building the resume.</p>
           </div>
         ) : (
           <BlockList
@@ -130,40 +154,39 @@ export default function BuilderView() {
             }
             onToggleEnabled={toggleBlock}
             onChange={updateBlock}
-            onRemove={removeBlock}
-            onReorder={reorderBlocks}
+            onRemove={handleRemove}
             onSave={setSavingBlock}
           />
         )}
 
         <div className="add-block">
           <span>Add a section</span>
+          <span className="add-block-hint">Click to add at the end, or drag into place.</span>
           <div className="add-block-buttons">
             {BUILT_IN_SECTION_TYPES.map((type) => {
               const exists = present.has(type)
               return (
-                <button
+                <PaletteChip
                   key={type}
-                  type="button"
-                  className="chip"
+                  sectionType={type}
                   disabled={exists}
                   title={exists ? 'Already added' : `Add ${SECTION_LABELS[type]}`}
                   onClick={() => addBlock(type)}
                 >
-                  + {SECTION_LABELS[type]}
-                </button>
+                  {SECTION_LABELS[type]}
+                </PaletteChip>
               )
             })}
             {/* Custom sections are never capped, so this chip never disables.
                 Adding one opens its editor so the title can be typed at once. */}
-            <button
-              type="button"
-              className="chip chip-custom"
+            <PaletteChip
+              sectionType="custom"
+              className="chip-custom"
               title="Add a section with your own title"
               onClick={handleAddCustom}
             >
-              + Custom section
-            </button>
+              Custom section
+            </PaletteChip>
           </div>
         </div>
         <BlockLibraryPanel
@@ -178,14 +201,18 @@ export default function BuilderView() {
           onRestore={(v) => {
             // Keep the live resume's own identity and name; take only the
             // version's content.
-            if (resume) replaceResume({ ...v.resume, id: resume.id, title: resume.title })
+            if (!resume) return
+            recordUndo(`restored ${v.label}`)
+            void replaceResume({ ...v.resume, id: resume.id, title: resume.title })
+            toast({ message: `Restored ${v.label}`, action: { label: 'Undo', run: undo } })
           }}
         />
+        <DropZones />
       </section>
 
       <section className="preview-pane">
-        {resume ? (
-          <ResumePaper resume={resume} />
+        {shown ? (
+          <ResumePaper resume={shown} highlightId={justMovedId} />
         ) : (
           <div className="paper" aria-busy="true">
             <div className="skeleton" style={{ height: 34, width: '55%' }} />

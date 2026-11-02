@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
+import { ToastProvider } from './components/Toast'
 import TopBar, { type ViewKey } from './components/TopBar'
+import { BuilderDndProvider } from './features/dnd/BuilderDnd'
 import AssistantDrawer from './features/assistant/AssistantDrawer'
 import BuilderView from './features/editor/BuilderView'
 import TrackerView from './features/tracker/TrackerView'
@@ -21,22 +23,26 @@ export default function App() {
     })
   }, [])
 
+  // One drag-and-drop context spans the builder and the assistant drawer,
+  // so a suggestion can be dragged from the drawer straight into the list.
   return (
-    <>
-      <TopBar
-        view={view}
-        onViewChange={setView}
-        onExport={handleExport}
-        onToggleAssistant={() => setAssistantOpen((v) => !v)}
-        assistantOpen={assistantOpen}
-      />
-      <div className={assistantOpen ? 'with-assistant' : undefined}>
-        {view === 'builder' ? <BuilderView /> : <TrackerView />}
-      </div>
-      <AssistantDrawer
-        open={assistantOpen}
-        onClose={() => setAssistantOpen(false)}
-      />
-    </>
+    <ToastProvider>
+      <BuilderDndProvider>
+        <TopBar
+          view={view}
+          onViewChange={setView}
+          onExport={handleExport}
+          onToggleAssistant={() => setAssistantOpen((v) => !v)}
+          assistantOpen={assistantOpen}
+        />
+        <div className={assistantOpen ? 'with-assistant' : undefined}>
+          {view === 'builder' ? <BuilderView /> : <TrackerView />}
+        </div>
+        <AssistantDrawer
+          open={assistantOpen}
+          onClose={() => setAssistantOpen(false)}
+        />
+      </BuilderDndProvider>
+    </ToastProvider>
   )
 }

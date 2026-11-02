@@ -1,6 +1,6 @@
 import type { Resume, ResumeBlock, SectionType, TemplateId } from '../types'
-import { isRepeatable } from '../types'
-import { blankBlock } from '../data/seed'
+import { isRepeatable } from '../types/index.js'
+import { blankBlock } from '../data/seed.js'
 
 /**
  * Pure resume mutations. Each takes a resume and returns a new one, never
@@ -33,19 +33,29 @@ export function setTemplate(resume: Resume, templateId: TemplateId): Resume {
   return next
 }
 
-export function addBlock(resume: Resume, type: SectionType, title?: string): Resume {
+/**
+ * Where a new block goes: at `atIndex` when it is a valid position (a drop
+ * between two cards), otherwise at the end (a click on "Add").
+ */
+function placeAt(blocks: ResumeBlock[], block: ResumeBlock, atIndex?: number): void {
+  const valid = atIndex !== undefined && Number.isInteger(atIndex) && atIndex >= 0 && atIndex <= blocks.length
+  if (valid) blocks.splice(atIndex, 0, block)
+  else blocks.push(block)
+}
+
+export function addBlock(resume: Resume, type: SectionType, title?: string, atIndex?: number): Resume {
   const next = cloneResume(resume)
   // Built-ins are capped at one each; custom sections are unlimited.
   const alreadyPresent = !isRepeatable(type) && next.blocks.some((b) => b.type === type)
-  if (!alreadyPresent) next.blocks.push(blankBlock(type, nextId('b'), title))
+  if (!alreadyPresent) placeAt(next.blocks, blankBlock(type, nextId('b'), title), atIndex)
   return next
 }
 
-export function insertBlock(resume: Resume, block: Omit<ResumeBlock, 'id'>): Resume {
+export function insertBlock(resume: Resume, block: Omit<ResumeBlock, 'id'>, atIndex?: number): Resume {
   const next = cloneResume(resume)
   // A library block is a copy: it gets a fresh id and never aliases the
   // saved entry, so later edits cannot write back into the library.
-  next.blocks.push({ ...structuredClone(block), id: nextId('b') } as ResumeBlock)
+  placeAt(next.blocks, { ...structuredClone(block), id: nextId('b') } as ResumeBlock, atIndex)
   return next
 }
 
@@ -86,5 +96,21 @@ export function reorderBlocks(resume: Resume, fromIndex: number, toIndex: number
   }
   const [moved] = next.blocks.splice(fromIndex, 1)
   next.blocks.splice(toIndex, 0, moved)
+  return next
+}
+
+/**
+ * Moves one entry of a list inside a section — a role, a bullet, a skill
+ * group — returning a new list. Out-of-range or same-index moves return an
+ * unchanged copy, like `reorderBlocks`.
+ */
+export function moveItem<T>(list: readonly T[], fromIndex: number, toIndex: number): T[] {
+  const next = [...list]
+  const max = next.length - 1
+  if (fromIndex < 0 || fromIndex > max || toIndex < 0 || toIndex > max || fromIndex === toIndex) {
+    return next
+  }
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
   return next
 }

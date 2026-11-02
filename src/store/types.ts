@@ -25,10 +25,13 @@ export interface ResumeStore {
   updateProfile(resumeId: string, patch: Partial<Resume['profile']>): Promise<Resume>
   setTemplate(resumeId: string, templateId: TemplateId): Promise<Resume>
 
-  /** `title` names a custom section; built-ins use their fixed label. */
-  addBlock(resumeId: string, type: SectionType, title?: string): Promise<Resume>
-  /** Append a ready-made block, e.g. a copy pulled from the block library. */
-  insertBlock(resumeId: string, block: Omit<ResumeBlock, 'id'>): Promise<Resume>
+  /**
+   * `title` names a custom section; built-ins use their fixed label.
+   * `atIndex` places it (a drag-and-drop insert); omitted, it is appended.
+   */
+  addBlock(resumeId: string, type: SectionType, title?: string, atIndex?: number): Promise<Resume>
+  /** Add a ready-made block, e.g. a copy pulled from the block library. */
+  insertBlock(resumeId: string, block: Omit<ResumeBlock, 'id'>, atIndex?: number): Promise<Resume>
   removeBlock(resumeId: string, blockId: string): Promise<Resume>
   updateBlock(resumeId: string, block: ResumeBlock): Promise<Resume>
   toggleBlock(resumeId: string, blockId: string, enabled: boolean): Promise<Resume>

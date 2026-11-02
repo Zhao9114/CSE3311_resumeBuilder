@@ -5,7 +5,7 @@ import type {
   ResumeVersion,
   SectionType,
 } from '../types'
-import { BUILT_IN_SECTION_TYPES, DEFAULT_TEMPLATE, SECTION_LABELS } from '../types'
+import { BUILT_IN_SECTION_TYPES, DEFAULT_TEMPLATE, SECTION_LABELS } from '../types/index.js'
 
 export const seedResume: Resume = {
   id: 'r1',

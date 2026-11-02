@@ -1,3 +1,9 @@
+import { Fragment } from 'react'
+import { GripVertical } from 'lucide-react'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { useReducedMotion } from '../../components/useReducedMotion'
+import { paperId, type DragData, type PaperColumn } from '../dnd/dragData'
 import {
   SIDEBAR_SECTION_TYPES,
   templateMeta,
@@ -100,14 +106,68 @@ function SectionBody({ block }: { block: ResumeBlock }) {
 
 interface ResumePaperProps {
   resume: Resume
+  /** A section to flash briefly, e.g. one that was just dragged into place. */
+  highlightId?: string | null
 }
 
-function Section({ block }: { block: ResumeBlock }) {
+interface SectionProps {
+  block: ResumeBlock
+  column: PaperColumn
+  highlight: boolean
+}
+
+/**
+ * One section of the page. Hovering it shows a grip in the margin, so the
+ * section can be dragged up or down right on the paper; it stays within its
+ * column on the two-column template. The grip never prints.
+ */
+function Section({ block, column, highlight }: SectionProps) {
+  const data: DragData = { kind: 'paper', blockId: block.id, column }
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: paperId(block.id), data })
+  const reducedMotion = useReducedMotion()
+
   return (
-    <section className="r-section">
+    <section
+      ref={setNodeRef}
+      className={`r-section${isDragging ? ' is-lifted' : ''}${highlight ? ' is-flash' : ''}`}
+      data-block-id={block.id}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition: reducedMotion ? undefined : transition,
+      }}
+    >
+      <button
+        type="button"
+        className="r-grip no-print"
+        ref={setActivatorNodeRef}
+        aria-label={`Move ${block.label} on the page. Press space or enter, then use the arrow keys.`}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={14} aria-hidden="true" />
+      </button>
       <h2 className="r-section-title">{block.label}</h2>
       <SectionBody block={block} />
     </section>
+  )
+}
+
+function Column({
+  blocks,
+  column,
+  highlightId,
+}: {
+  blocks: ResumeBlock[]
+  column: PaperColumn
+  highlightId?: string | null
+}) {
+  return (
+    <SortableContext items={blocks.map((b) => paperId(b.id))} strategy={verticalListSortingStrategy}>
+      {blocks.map((block) => (
+        <Section block={block} column={column} highlight={highlightId === block.id} key={block.id} />
+      ))}
+    </SortableContext>
   )
 }
 
@@ -116,7 +176,7 @@ function Section({ block }: { block: ResumeBlock }) {
  * resume's template. The Sidebar template splits the same blocks across two
  * columns; every other template renders one column.
  */
-export default function ResumePaper({ resume }: ResumePaperProps) {
+export default function ResumePaper({ resume, highlightId }: ResumePaperProps) {
   const { profile, blocks, templateId } = resume
   const meta = templateMeta(templateId)
   const visible = blocks.filter((b) => b.enabled)
@@ -129,11 +189,13 @@ export default function ResumePaper({ resume }: ResumePaperProps) {
       {profile.title && <div className="r-title">{profile.title}</div>}
       {!meta.twoColumn && contact.length > 0 && (
         <p className="r-contact">
+          {/* The separator sits outside the no-wrap span, so a narrow page
+              can break the line between parts instead of overflowing. */}
           {contact.map((part, i) => (
-            <span key={i}>
-              {part}
+            <Fragment key={i}>
+              <span>{part}</span>
               {i < contact.length - 1 ? ' · ' : ''}
-            </span>
+            </Fragment>
           ))}
         </p>
       )}
@@ -152,7 +214,7 @@ export default function ResumePaper({ resume }: ResumePaperProps) {
         {header}
         {visible.length === 0
           ? empty
-          : visible.map((block) => <Section block={block} key={block.id} />)}
+          : <Column blocks={visible} column="single" highlightId={highlightId} />}
       </div>
     )
   }
@@ -177,14 +239,12 @@ export default function ResumePaper({ resume }: ResumePaperProps) {
               </ul>
             </section>
           )}
-          {aside.map((block) => (
-            <Section block={block} key={block.id} />
-          ))}
+          <Column blocks={aside} column="aside" highlightId={highlightId} />
         </aside>
         <div className="r-main">
           {visible.length === 0
             ? empty
-            : main.map((block) => <Section block={block} key={block.id} />)}
+            : <Column blocks={main} column="main" highlightId={highlightId} />}
         </div>
       </div>
     </div>

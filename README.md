@@ -7,7 +7,22 @@ Iteration 1 built the full UI and the drag-and-drop editor. Iteration 2 makes
 the work permanent and private: Supabase login, saving to Supabase behind the
 existing store interfaces, row-level security, and immutable **resume
 versions** that the job tracker links to. That way "Resume used" shows exactly
-what was sent. There is still no AI or LLM code; that comes in iteration 3.
+what was sent.
+
+Iteration 3 adds the AI and reworks the interface:
+
+- **AI.** A real **ATS check** and a **resume assistant**, both on Claude Haiku
+  through serverless functions. An **intent parser** routes every assistant
+  message, and a **rate limiter and spend cap** keep the whole project under a
+  $5 budget. See [AI features](#ai-features).
+- **UI.** A modern refresh with **light and dark** themes and larger,
+  higher-contrast text.
+- **Drag and drop.** You can now drag from the whole card. The paper previews
+  the result live while you drag. You can drag sections in from the palette,
+  the block library or the assistant, reorder roles and bullets inside a
+  section, reorder sections directly on the paper, and drop a card on Hide or
+  Remove zones. Every change can be undone with Ctrl/Cmd+Z. See
+  [Drag and drop](#drag-and-drop).
 
 ## Running it
 
@@ -32,8 +47,12 @@ The app runs in one of two modes, chosen at startup:
 See [Supabase setup](#supabase-setup) to switch on Supabase mode.
 
 Deploying to Vercel: it is a standard Vite app at the repo root, with
-`npm run build` producing `dist/`. Add the same two `VITE_SUPABASE_*`
-environment variables in the Vercel project settings.
+`npm run build` producing `dist/`. Vercel also deploys `api/*.ts` as serverless
+functions. Add the two `VITE_SUPABASE_*` variables plus the server-only AI
+variables (see [AI setup](#ai-setup)) in the Vercel project settings.
+
+`npm run dev` serves those same functions locally through a small Vite plugin
+in `vite.config.ts`, so you don't need the Vercel CLI.
 
 ## How it is put together
 
@@ -54,9 +73,19 @@ src/
     auth/       AuthProvider (session), AuthGate, AuthScreen (sign in / up)
     editor/     block list, per-section forms, drag-and-drop, resume paper, versions
     tracker/    applications table, stats, add/edit modal
-  components/   TopBar, Modal, useReducedMotion
-  services/     ats.ts, assistant.ts: typed stubs only, see below
-supabase/migrations/  SQL for the tables, RLS policies and triggers
+    ats/        ATS check panel
+    assistant/  assistant drawer with proposal cards
+    dnd/        BuilderDnd: the shared drag-and-drop context, drop zones, undo
+  components/   TopBar, Modal, Toast, ThemeToggle, useTheme, useReducedMotion
+  ai/           shared by browser and server: intent parser, input limits, resume → text
+  services/     ats.ts, assistant.ts, aiClient.ts: the browser side of the AI calls
+  styles/       tokens.css (light/dark design tokens), dnd.css, templates.css, …
+api/            Vercel serverless entry points: POST /api/ats, POST /api/assistant
+server/
+  ai/           model wrapper (Claude Haiku, cost per call), ATS keyword scoring, prompt helpers
+  limits/       rate limiter (Supabase-backed or in-memory), caller identity
+  handlers/     request handling for each endpoint
+supabase/migrations/  SQL for the tables, RLS policies, triggers, and the AI usage ledger
 ```
 
 The ideas that carry most of the weight:
@@ -120,6 +149,10 @@ default choice is **Snapshot current resume now**, which saves a version named
   key are bundled. Both are public by design, and RLS is what protects the data.
   `src/lib/supabase.ts` refuses to start if given a `service_role` or
   `sb_secret_` key. `.env.local` and `.env.test.local` are gitignored (`*.local`).
+- **Server-only AI secrets.** `ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY`
+  are read only by the functions in `api/`. They have no `VITE_` prefix, so
+  Vite can't bundle them. The production build contains neither name, nor the
+  Anthropic SDK.
 - **Encryption at rest** is on by default for every Supabase project (AES-256
   on the underlying storage), and all traffic is over HTTPS.
 
@@ -176,18 +209,80 @@ The library lives behind `BlockLibraryStore`, alongside the other stores, and
 is exposed as the `useBlockLibrary` hook. In Supabase mode it is saved to the
 `saved_blocks` table.
 
-## Placeholder screens
+## AI features
 
-Two surfaces are deliberately fake until iteration 3. Both say so on screen,
-and neither makes a network request:
+Both features call **Claude Haiku** (`claude-haiku-5-5`, $0.10 / $0.50 per
+million input/output tokens) from serverless functions. The Anthropic key
+lives only on the server and never reaches the browser.
 
-- **ATS check** (`src/features/ats/AtsPanel.tsx`) renders a fixed sample
-  result. The real call goes through `atsService.analyze` in
-  `src/services/ats.ts`.
-- **Assistant** (`src/features/assistant/AssistantDrawer.tsx`) is a chat
-  drawer with scripted replies. The real call goes through
-  `assistantService.send` in `src/services/assistant.ts`, whose
-  `AssistantMessage.proposed` field is where generated blocks will arrive.
+**ATS check** (`POST /api/ats`). The model reads the pasted posting and lists
+the required and nice-to-have keywords, with aliases (PostgreSQL ↔ Postgres),
+plus 3–5 tips. **Matching and scoring are done in code, not by the model**
+(`server/ai/atsScore.ts`). Each keyword is looked up in the resume text, and
+the score is 75% required matches and 25% preferred, so the same resume and
+posting always get the same score. Identical re-checks are served from the
+tab's session storage for free.
+
+**Assistant** (`POST /api/assistant`). Every message first goes through the
+**intent parser** (`src/ai/intent.ts`), the first piece of the RAG pipeline
+planned for iteration 4:
+
+1. Keyword rules classify the message: write a summary, draft an experience
+   entry, rewrite bullets, add skills, tailor to a job, give advice, or off
+   topic. This costs nothing.
+2. Only if the rules aren't confident does a small Haiku call classify it.
+3. Off-topic messages and prompt-injection openers ("ignore previous
+   instructions…") are refused **without any model call** and don't count
+   against the limit.
+4. The intent picks the prompt and the output schema. "Rewrite bullets" can
+   only return new bullets for the existing roles, and the role, employer and
+   dates are copied from the resume, not from the model.
+
+Replies come back as **proposal cards**. Nothing changes on the resume until
+the user presses Insert or Replace, or drags the card into the section list.
+Every generated block passes the same `parseBlock` check as a database row.
+
+**Cost and abuse controls** (`server/handlers/guard.ts`,
+`supabase/migrations/0002_iteration3_ai.sql`):
+
+| Guard | Default (env var) |
+| --- | --- |
+| Signed-in user | 40 calls / 24 h, 6 / min (`AI_DAILY_LIMIT_USER`, `AI_MINUTE_LIMIT_USER`) |
+| Anonymous visitor, by salted IP hash | 15 / 24 h, 4 / min (`AI_DAILY_LIMIT_ANON`, `AI_MINUTE_LIMIT_ANON`) |
+| Total spend, all users | $4.00 (`AI_BUDGET_USD`); after that, both features fall back to labelled sample output |
+| Hard backstop | A $5 spend limit set in the Anthropic Console |
+| Input size | Posting ≤ 12,000 chars, message ≤ 2,000 chars, last 4 chat turns |
+| Output size | `max_tokens` 2,000 (ATS, assistant), 400 (intent) |
+
+Every call's tokens and dollar cost are written to the `ai_usage` table, which
+browsers can't read or write. A query at the bottom of the migration shows
+where the budget went. Measured: about $0.0002 per assistant reply and $0.0005 per ATS check.
+
+Untrusted text (the posting, the user's message) is wrapped in tags the system
+prompt names as data, and closing tags inside it are removed, so a posting
+can't break out and give the model instructions.
+
+## Drag and drop
+
+One drag-and-drop context (`src/features/dnd/BuilderDnd.tsx`) spans the
+editor, the palette, the block library, the assistant drawer and the paper:
+
+- **Reorder** a section by dragging the whole card, not just the grip. The
+  paper shows the new order live while you drag; Esc cancels.
+- **Hide / Remove zones** appear at the bottom of the editor while a card is
+  being dragged.
+- **Drag in** a "+ Section" chip, a saved block, or an assistant suggestion.
+  A gap opens where it will land. Clicking still appends.
+- **Inside a section**, drag roles, bullets, skill groups and entries by their
+  grips (`SortableList.tsx`).
+- **On the paper**, hover a section and drag its grip. On the Sidebar template
+  a section stays in its own column.
+- **Undo**: each drop shows a toast with Undo, and Ctrl/Cmd+Z undoes the last
+  drag, removal, or version restore (outside text fields, where it stays the
+  field's own undo).
+- **Keyboard**: every grip works with Space, the arrow keys and Space, with
+  screen-reader announcements in section names. Chips and library items keep
+  their click buttons as the keyboard path.
 
 ## Tests
 
@@ -200,7 +295,12 @@ and neither makes a network request:
 | `src/store/supabaseMappers.test.ts` | Database round trip: `resumeToRow`/`resumeFromRow`, `versionToRow`/`versionFromRow`, `applicationToRow`/`applicationFromRow`, `savedBlockToRow`/`savedBlockFromRow`, preserving block order and visibility |
 | `src/store/supabaseStore.test.ts` | `SupabaseResumeStore` on a fake client: exactly one starter resume for a new user, a burst of edits collapsing into one write of the newest state, reload matching what was saved, and a failed write being retried (`flush`, sync status) |
 | `src/store/normalize.test.ts` | `normalizeDateText`, `normalizeIsoDate`, `normalizeResume`, `normalizeApplication`, and `parseResume`/`parseBlock` on malformed rows |
-| `src/store/rls.integration.test.ts` | `npm run test:rls`: against the real database, with two test users. Another user can't read, update, delete or insert-as the owner's rows; can't see or link to their versions; versions can't be edited; signed-out visitors see nothing |
+| `src/store/resumeOps.test.ts` | Drag-and-drop inserts at a position (`addBlock`/`insertBlock` with `atIndex`), the one-per-type rule still holding, and `moveItem` for reordering inside a section |
+| `src/ai/intent.test.ts` | The intent parser's rules: each intent, pasted postings, off-topic and prompt-injection refusals, ambiguous messages left to the model, skill extraction |
+| `server/ai/atsScore.test.ts` | ATS keyword matching (case, punctuation, Node.js/NodeJS, aliases, plurals, whole words, phrases) and the score and verdict |
+| `server/limits/rateLimiter.test.ts` | Per-minute and rolling 24-hour limits, separate identities, the global spend cap |
+| `server/handlers/handlers.test.ts` | Both endpoints against a fake model: scoring in code, posting fenced as data, validation, AI off, budget exhausted and off-topic **with no model call**, IP rate limits, cost charged even on bad output, refusals, bullets-only rewrites, skill merging |
+| `src/store/rls.integration.test.ts` | `npm run test:rls`: against the real database, with two test users. Another user can't read, update, delete or insert-as the owner's rows; can't see or link to their versions; versions can't be edited; signed-out visitors see nothing; no browser session can read or write the AI usage ledger or call its functions |
 
 ## Supabase setup
 
@@ -237,15 +337,35 @@ and neither makes a network request:
 7. **Deploy.** Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the
    Vercel project's environment variables and redeploy.
 
-## Not in iteration 2
+## AI setup
 
-ATS checking, the assistant, and any LLM or API call remain out of scope until
-iteration 3. Both have typed seams marked `TODO(iteration-3)`:
+1. **Create the ledger.** In the Supabase SQL editor, run
+   `supabase/migrations/0002_iteration3_ai.sql`. It is safe to re-run.
+2. **Get an Anthropic key** at console.anthropic.com. Under **Billing →
+   Limits**, set a **monthly spend limit of $5**. That is the hard backstop
+   behind the app's own $4 cap.
+3. **Set the server variables** in `.env.local` (locally) and in the Vercel
+   project settings (production). They have no `VITE_` prefix, so Vite never
+   bundles them:
 
-| Seam | Location |
-| --- | --- |
-| ATS analysis | `src/services/ats.ts`, `src/features/ats/AtsPanel.tsx` |
-| Assistant / block generation | `src/services/assistant.ts`, `src/features/assistant/AssistantDrawer.tsx` |
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   SUPABASE_SERVICE_ROLE_KEY=...   # Supabase → Project Settings → API (secret)
+   IP_HASH_SALT=any-random-string
+   ```
+
+   Without `SUPABASE_SERVICE_ROLE_KEY`, limits are kept in memory per function
+   instance, which is fine locally but not in production.
+4. **Run it.** Restart `npm run dev`, then open the ATS check or the Assistant.
+5. **After the demos**, revoke the key in the Anthropic Console, or delete
+   `ANTHROPIC_API_KEY` from Vercel and redeploy. Both features then fall back
+   to labelled sample output and make no calls.
+
+## Not in iteration 3
+
+Retrieval over many past postings, job recommendations and richer analytics
+are iteration 4. The intent parser is where that retrieval will plug in: an
+intent such as "tailor to job" will decide when to fetch similar postings.
 
 `legacy-demo/` holds the original vanilla HTML/CSS/JS prototype this was
 built from, kept for reference.

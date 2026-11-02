@@ -6,8 +6,8 @@ import type {
   SectionType,
   TemplateId,
 } from '../types'
-import { APPLICATION_STATUSES, DEFAULT_TEMPLATE, SECTION_LABELS, SECTION_TYPES, TEMPLATES } from '../types'
-import { nextId } from './resumeOps'
+import { APPLICATION_STATUSES, DEFAULT_TEMPLATE, SECTION_LABELS, SECTION_TYPES, TEMPLATES } from '../types/index.js'
+import { nextId } from './resumeOps.js'
 
 /**
  * Two jobs, both at the persistence boundary:

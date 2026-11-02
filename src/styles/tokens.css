@@ -1,0 +1,142 @@
+/* ============================================================
+   Design tokens — light and dark.
+
+   Every colour in the app comes from here. Components use the semantic
+   names (--ink, --surface, --accent…), never raw hex, so a theme is just a
+   different set of values. Text/background pairs are chosen to clear
+   WCAG AA (4.5:1) in both themes.
+
+   The resume paper is the printed document, so it is pinned to the light
+   palette whatever the app theme is — see `.paper` at the bottom.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* Text */
+  --ink: #111827;
+  --ink-soft: #374151;
+  --muted: #566070;          /* 6.0:1 on --bg, 6.4:1 on --surface */
+
+  /* Surfaces */
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;      /* subtle fills: hover, table head, wells */
+  --surface-3: #e8ebf0;
+  --line: #e2e6eb;
+  --line-strong: #cbd2db;
+
+  /* Brand */
+  --accent: #18794e;         /* 5.4:1 with white text */
+  --accent-hover: #136640;
+  --accent-contrast: #ffffff;
+  --accent-soft: #e7f5ee;
+  --accent-ink: #0f5e3b;     /* on --accent-soft: 7.0:1 */
+  --focus-ring: 0 0 0 3px rgba(24, 121, 78, 0.28);
+
+  /* Status */
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --warn-ink: #7a4b00;
+  --warn-soft: #fff6e0;
+  --warn-line: #f0d9a6;
+  --info-ink: #1d5fb8;
+  --info-soft: #e8f0fc;
+  --violet-ink: #6b3ca8;
+  --violet-soft: #f3ecfb;
+  --neutral-ink: #3d4654;
+  --neutral-soft: #eceff3;
+
+  /* One hue per section kind, used on the editor cards. */
+  --sec-summary: #6366f1;
+  --sec-experience: #0284c7;
+  --sec-skills: #d97706;
+  --sec-education: #7c3aed;
+  --sec-projects: #db2777;
+  --sec-custom: #0d9488;
+
+  /* Shape */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.07), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 24px 56px rgba(16, 24, 40, 0.18), 0 4px 12px rgba(16, 24, 40, 0.08);
+  --backdrop: rgba(15, 20, 30, 0.45);
+
+  /* Type */
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Fraunces", Georgia, serif;
+  --text-xs: 12.5px;
+  --text-sm: 13.5px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ink: #e8ebf0;
+  --ink-soft: #c5ccd6;
+  --muted: #9aa5b4;          /* 7.4:1 on --surface */
+
+  --bg: #0c1015;
+  --surface: #141a21;
+  --surface-2: #1b222b;
+  --surface-3: #232b36;
+  --line: #29313c;
+  --line-strong: #3a4452;
+
+  --accent: #3cc08a;
+  --accent-hover: #55d19d;
+  --accent-contrast: #04150d; /* dark text on the bright green: 9.6:1 */
+  --accent-soft: rgba(60, 192, 138, 0.14);
+  --accent-ink: #74dcb0;
+  --focus-ring: 0 0 0 3px rgba(60, 192, 138, 0.35);
+
+  --danger: #ff8a80;
+  --danger-soft: rgba(255, 138, 128, 0.13);
+  --warn-ink: #f3cf6b;
+  --warn-soft: rgba(243, 207, 107, 0.1);
+  --warn-line: rgba(243, 207, 107, 0.3);
+  --info-ink: #8cc2ff;
+  --info-soft: rgba(140, 194, 255, 0.13);
+  --violet-ink: #d4b0ff;
+  --violet-soft: rgba(212, 176, 255, 0.13);
+  --neutral-ink: #c5ccd6;
+  --neutral-soft: rgba(197, 204, 214, 0.1);
+
+  --sec-summary: #8b8ff8;
+  --sec-experience: #38bdf8;
+  --sec-skills: #fbbf24;
+  --sec-education: #a78bfa;
+  --sec-projects: #f472b6;
+  --sec-custom: #2dd4bf;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --backdrop: rgba(0, 0, 0, 0.6);
+}
+
+/* The resume is a printed page: same light palette in either theme, so what
+   you see while editing in dark mode is exactly what the PDF will be. */
+.paper {
+  color-scheme: light;
+  --ink: #14202e;
+  --ink-soft: #3a4a5c;
+  --muted: #616e7a;
+  --line: #e2e7ec;
+  --bg: #f2f4f6;
+  --surface: #ffffff;
+  --paper: #ffffff;
+  --accent: #1f8f5f;
+  --accent-soft: #e6f4ec;
+  --accent-ink: #0f5d3c;
+  color: var(--ink);
+}

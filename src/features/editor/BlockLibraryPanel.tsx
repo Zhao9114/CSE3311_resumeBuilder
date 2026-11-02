@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
+import { GripVertical } from 'lucide-react'
+import type { DragData } from '../dnd/dragData'
 import type { ResumeBlock, SavedBlock } from '../../types'
+import { SECTION_ICONS } from './sectionIcons'
 
 interface BlockLibraryPanelProps {
   savedBlocks: SavedBlock[]
@@ -82,36 +86,60 @@ export default function BlockLibraryPanel({
       ) : (
         <ul className="library-list">
           {shown.map((saved) => (
-            <li className="library-item" key={saved.id}>
-              <div className="library-info">
-                <div className="block-label">{saved.name}</div>
-                <div className="block-meta">
-                  {saved.block.label}
-                  {saved.tags.length > 0 && ` · ${saved.tags.join(', ')}`}
-                </div>
-              </div>
-              <div className="block-actions">
-                <button
-                  type="button"
-                  className="row-btn"
-                  onClick={() => onInsert(saved.block)}
-                >
-                  Insert
-                  <span className="visually-hidden">{` ${saved.name}`}</span>
-                </button>
-                <button
-                  type="button"
-                  className="row-btn is-danger"
-                  onClick={() => onRemove(saved.id)}
-                >
-                  Delete
-                  <span className="visually-hidden">{` ${saved.name}`}</span>
-                </button>
-              </div>
-            </li>
+            <LibraryItem key={saved.id} saved={saved} onInsert={onInsert} onRemove={onRemove} />
           ))}
         </ul>
       )}
     </section>
+  )
+}
+
+interface LibraryItemProps {
+  saved: SavedBlock
+  onInsert: (block: Omit<ResumeBlock, 'id'>) => void
+  onRemove: (id: string) => void
+}
+
+/**
+ * A saved block. Insert appends a copy; dragging the card into the section
+ * list drops the copy at that spot instead.
+ */
+function LibraryItem({ saved, onInsert, onRemove }: LibraryItemProps) {
+  const data: DragData = { kind: 'saved-block', block: saved.block, name: saved.name }
+  const { setNodeRef, listeners, isDragging } = useDraggable({ id: `saved:${saved.id}`, data })
+  const Icon = SECTION_ICONS[saved.block.type]
+  const fromCard = (e: React.SyntheticEvent) => !(e.target as HTMLElement).closest('button')
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={`library-item is-grabbable${isDragging ? ' is-lifted' : ''}`}
+      data-type={saved.block.type}
+      onMouseDown={(e) => fromCard(e) && listeners?.onMouseDown?.(e)}
+      onTouchStart={(e) => fromCard(e) && listeners?.onTouchStart?.(e)}
+      title="Drag into your sections, or press Insert"
+    >
+      <GripVertical size={16} className="library-grip" aria-hidden="true" />
+      <span className="block-icon" aria-hidden="true">
+        <Icon size={16} />
+      </span>
+      <div className="library-info">
+        <div className="block-label">{saved.name}</div>
+        <div className="block-meta">
+          {saved.block.label}
+          {saved.tags.length > 0 && ` · ${saved.tags.join(', ')}`}
+        </div>
+      </div>
+      <div className="block-actions">
+        <button type="button" className="row-btn" onClick={() => onInsert(saved.block)}>
+          Insert
+          <span className="visually-hidden">{` ${saved.name}`}</span>
+        </button>
+        <button type="button" className="row-btn is-danger" onClick={() => onRemove(saved.id)}>
+          Delete
+          <span className="visually-hidden">{` ${saved.name}`}</span>
+        </button>
+      </div>
+    </li>
   )
 }

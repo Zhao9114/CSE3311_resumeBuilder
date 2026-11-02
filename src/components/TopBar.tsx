@@ -1,6 +1,18 @@
 import { useState } from 'react'
+import {
+  Briefcase,
+  CloudAlert,
+  CloudCheck,
+  Download,
+  FileText,
+  LoaderCircle,
+  LogOut,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 import { useSyncStatus, type SyncStatus } from '../store'
 import { useOptionalAuth } from '../features/auth/AuthProvider'
+import ThemeToggle from './ThemeToggle'
 
 export type ViewKey = 'builder' | 'tracker'
 
@@ -19,9 +31,16 @@ const SYNC_LABELS: Record<SyncStatus, string> = {
   error: "Couldn't save — retrying",
 }
 
-const TABS: { key: ViewKey; label: string }[] = [
-  { key: 'builder', label: 'Resume builder' },
-  { key: 'tracker', label: 'Job tracker' },
+const SYNC_ICONS: Record<SyncStatus, LucideIcon> = {
+  idle: CloudCheck,
+  saved: CloudCheck,
+  saving: LoaderCircle,
+  error: CloudAlert,
+}
+
+const TABS: { key: ViewKey; label: string; icon: LucideIcon }[] = [
+  { key: 'builder', label: 'Resume builder', icon: FileText },
+  { key: 'tracker', label: 'Job tracker', icon: Briefcase },
 ]
 
 export default function TopBar({
@@ -66,6 +85,7 @@ export default function TopBar({
             aria-current={view === tab.key ? 'page' : undefined}
             onClick={() => onViewChange(tab.key)}
           >
+            <tab.icon size={15} aria-hidden="true" />
             {tab.label}
           </button>
         ))}
@@ -77,12 +97,16 @@ export default function TopBar({
           className="btn btn-ghost"
           onClick={onToggleAssistant}
           aria-pressed={assistantOpen}
+          aria-label="Assistant"
         >
-          Assistant
+          <Sparkles size={16} aria-hidden="true" />
+          <span className="btn-text">Assistant</span>
         </button>
-        <button type="button" className="btn btn-ghost" onClick={onExport}>
-          Export PDF
+        <button type="button" className="btn btn-ghost" onClick={onExport} aria-label="Export PDF">
+          <Download size={16} aria-hidden="true" />
+          <span className="btn-text">Export PDF</span>
         </button>
+        <ThemeToggle />
         {auth?.user ? (
           <>
             {status && (
@@ -91,6 +115,7 @@ export default function TopBar({
                 role="status"
                 aria-live="polite"
               >
+                <SyncIcon status={status} />
                 {SYNC_LABELS[status]}
               </span>
             )}
@@ -102,8 +127,10 @@ export default function TopBar({
               className="btn btn-ghost"
               onClick={handleSignOut}
               disabled={signingOut}
+              aria-label="Sign out"
             >
-              {signingOut ? 'Signing out…' : 'Sign out'}
+              <LogOut size={16} aria-hidden="true" />
+              <span className="btn-text">{signingOut ? 'Signing out…' : 'Sign out'}</span>
             </button>
           </>
         ) : (
@@ -112,4 +139,9 @@ export default function TopBar({
       </div>
     </header>
   )
+}
+
+function SyncIcon({ status }: { status: SyncStatus }) {
+  const Icon = SYNC_ICONS[status]
+  return <Icon size={13} aria-hidden="true" className={status === 'saving' ? 'spin' : undefined} />
 }

@@ -1,0 +1,246 @@
+/* ============================================================
+   Iteration 3: drag and drop — lift, landing slots, drop zones,
+   paper reordering, and the undo toast
+   ============================================================ */
+
+.is-grabbable { cursor: grab; }
+.is-grabbable:active { cursor: grabbing; }
+
+/* ---------------- Lifted card (follows the pointer) ---------------- */
+.block.is-overlay {
+  cursor: grabbing;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+  animation: lift .22s var(--spring) forwards;
+}
+@keyframes lift {
+  to { transform: scale(1.035) rotate(-1.2deg); }
+}
+/* Dragged in from a chip or the drawer: the source is small, so give the
+   card a real width instead of the chip's. */
+.block.is-overlay.is-incoming { width: 340px; }
+.block.is-overlay.over-remove {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  animation: lift .22s var(--spring) forwards, shake .3s ease-in-out;
+}
+.block.is-overlay.over-hide { border-color: var(--line-strong); opacity: .75; }
+.overlay-zone-icon { margin-left: auto; color: var(--danger); flex: none; }
+.over-hide .overlay-zone-icon { color: var(--muted); }
+@keyframes shake {
+  25% { translate: -3px 0; }
+  75% { translate: 3px 0; }
+}
+
+/* ---------------- The slot a card left behind ---------------- */
+.block.is-dragging {
+  opacity: 1;
+  border: 2px dashed var(--accent);
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+.block.is-dragging > * { visibility: hidden; }
+
+/* A card that just moved or arrived glows once. */
+.block.just-moved { animation: settle .9s var(--ease-out); }
+@keyframes settle {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); border-color: var(--accent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+/* ---------------- Dragging something in from outside ---------------- */
+.block-list.is-receiving {
+  border-radius: var(--radius);
+  outline: 2px dashed transparent;
+  outline-offset: 6px;
+  transition: outline-color .15s;
+}
+.block-list.is-receiving.is-target { outline-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.drop-slot {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 58px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  animation: slot-open .18s var(--ease-out);
+}
+@keyframes slot-open {
+  from { height: 0; opacity: 0; }
+}
+
+.palette-chip.is-lifted,
+.library-item.is-lifted,
+.proposal.is-lifted { opacity: .4; }
+.add-block-hint { display: block; font-weight: 400; color: var(--muted); font-size: var(--text-xs); margin-top: 2px; }
+
+.library-item { padding-left: 8px; }
+.library-item .block-icon { width: 30px; height: 30px; }
+.library-grip { color: var(--muted); flex: none; }
+.library-item[data-type='summary'],
+.proposal[data-type='summary'] { --sec: var(--sec-summary); }
+.library-item[data-type='experience'],
+.proposal[data-type='experience'] { --sec: var(--sec-experience); }
+.library-item[data-type='skills'],
+.proposal[data-type='skills'] { --sec: var(--sec-skills); }
+.library-item[data-type='education'],
+.proposal[data-type='education'] { --sec: var(--sec-education); }
+.library-item[data-type='projects'],
+.proposal[data-type='projects'] { --sec: var(--sec-projects); }
+.library-item { --sec: var(--sec-custom); }
+
+.proposal-head .block-label { display: inline-flex; align-items: center; gap: 4px; }
+.proposal-grip { color: var(--muted); }
+.proposal.is-done { opacity: .7; }
+
+/* ---------------- Hide / Remove drop zones ---------------- */
+/* Zero-height and sticky, so the zones float over the bottom of the editor
+   without taking up room when no card is being dragged. */
+.drop-zones {
+  position: sticky;
+  bottom: 14px;
+  height: 0;
+  z-index: 5;
+}
+.drop-zones > .drop-zone {
+  position: absolute;
+  bottom: 0;
+  width: calc(50% - 5px);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 64px;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(24px);
+  pointer-events: none;
+  transition: opacity .18s, transform .22s var(--ease-out), background .15s, border-color .15s, color .15s;
+}
+.drop-zones > .zone-hide { left: 0; }
+.drop-zones > .zone-remove { right: 0; }
+.drop-zones.is-open > .drop-zone { opacity: 1; transform: none; }
+.drop-zone.zone-hide.is-over {
+  border-style: solid; border-color: var(--ink-soft); background: var(--surface-2); color: var(--ink);
+  transform: scale(1.03);
+}
+.drop-zone.zone-remove.is-over {
+  border-style: solid; border-color: var(--danger); background: var(--danger-soft); color: var(--danger);
+  transform: scale(1.03);
+}
+
+/* ---------------- Reordering inside a section ---------------- */
+.sortable-row { position: relative; }
+.sortable-row.is-dragging { z-index: 2; }
+.sortable-row.is-dragging > .sub-item,
+.sortable-row.is-dragging > .bullet-row {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+}
+.sub-item-head {
+  display: flex; align-items: center; gap: 6px;
+  margin: -4px 0 10px -6px;
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted);
+}
+.item-grip {
+  display: grid; place-items: center; flex: none;
+  width: 24px; height: 24px; padding: 0;
+  border: none; border-radius: 6px; background: transparent;
+  color: var(--muted); cursor: grab; touch-action: none;
+}
+.item-grip:hover { background: var(--surface-2); color: var(--ink); }
+.item-grip:active { cursor: grabbing; }
+
+.bullet-order { margin: -6px 0 12px; }
+.bullet-order-label { display: block; font-size: var(--text-xs); color: var(--muted); margin-bottom: 6px; }
+.bullet-order .sortable-list { display: grid; gap: 4px; }
+.bullet-row {
+  display: flex; align-items: flex-start; gap: 4px;
+  padding: 4px 8px 4px 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.bullet-row > span { padding-top: 3px; min-width: 0; overflow-wrap: anywhere; }
+
+/* ---------------- Reordering on the paper ---------------- */
+.paper .r-section { position: relative; border-radius: 4px; }
+.r-grip {
+  position: absolute;
+  left: -30px;
+  top: -2px;
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.paper .r-section:hover > .r-grip,
+.r-grip:focus-visible { opacity: 1; }
+.tpl-sidebar .r-aside .r-grip { left: -24px; }
+.paper .r-section:hover { outline: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 6px; }
+.paper .r-section.is-lifted { opacity: .35; }
+.paper .r-section.is-flash { animation: paper-flash 1.4s var(--ease-out); }
+@keyframes paper-flash {
+  0%, 30% { background: var(--accent-soft); box-shadow: 0 0 0 8px var(--accent-soft); }
+  100% { background: transparent; box-shadow: 0 0 0 8px transparent; }
+}
+
+/* ---------------- Toast ---------------- */
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 70;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--bg);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in .25s var(--spring);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(.96); } }
+.toast-action {
+  border: none; background: transparent; cursor: pointer;
+  color: #74dcb0; font-weight: 700; font-size: var(--text-sm);
+  padding: 4px 8px; border-radius: 6px;
+}
+[data-theme='dark'] .toast-action { color: #18794e; }
+.toast-action:hover { background: color-mix(in srgb, var(--bg) 14%, transparent); }
+.toast-close {
+  display: grid; place-items: center;
+  border: none; background: transparent; cursor: pointer; color: inherit; opacity: .7;
+  width: 26px; height: 26px; border-radius: 6px;
+}
+.toast-close:hover { opacity: 1; }
+
+@media print {
+  .r-grip, .drop-zones, .toast-region { display: none !important; }
+  .paper .r-section { outline: none !important; animation: none !important; transform: none !important; }
+}
