@@ -11,6 +11,7 @@ import type {
 } from '../types'
 import { seedApplications, seedResumes, seedVersions } from '../data/seed'
 import * as ops from './resumeOps'
+import { parseBlock } from './normalize'
 import { cloneResume, nextId } from './resumeOps'
 import type {
   ApplicationStore,
@@ -124,7 +125,50 @@ export class InMemoryResumeVersionStore implements ResumeVersionStore {
 }
 
 export class InMemoryBlockLibraryStore implements BlockLibraryStore {
-  private saved: SavedBlock[] = []
+  private saved: SavedBlock[]
+
+  /**
+   * With a `storageKey` (demo mode), the bank is kept in this browser's
+   * localStorage so the live demo survives a reload. Storage can be missing
+   * or blocked (private windows), so every access is guarded and the store
+   * still works in memory without it. Tests pass no key.
+   */
+  constructor(seed: SavedBlock[] = [], private readonly storageKey?: string) {
+    this.saved = this.load() ?? seed.map((s) => structuredClone(s))
+  }
+
+  private load(): SavedBlock[] | null {
+    if (!this.storageKey) return null
+    try {
+      const raw = globalThis.localStorage?.getItem(this.storageKey)
+      if (!raw) return null
+      const parsed: unknown = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return null
+      return parsed.flatMap((row) => {
+        const block = parseBlock((row as SavedBlock)?.block)
+        if (!block || typeof row.id !== 'string') return []
+        const { id: _id, ...rest } = block
+        return [{
+          id: row.id,
+          name: typeof row.name === 'string' ? row.name : 'Saved entry',
+          tags: Array.isArray(row.tags) ? row.tags.filter((t: unknown) => typeof t === 'string') : [],
+          block: rest,
+          savedAt: typeof row.savedAt === 'string' ? row.savedAt : new Date().toISOString(),
+        }]
+      })
+    } catch {
+      return null
+    }
+  }
+
+  private persist(): void {
+    if (!this.storageKey) return
+    try {
+      globalThis.localStorage?.setItem(this.storageKey, JSON.stringify(this.saved))
+    } catch {
+      // Storage full or blocked: the bank still works for this session.
+    }
+  }
 
   async list(): Promise<SavedBlock[]> {
     return this.saved.map((s) => structuredClone(s))
@@ -137,6 +181,7 @@ export class InMemoryBlockLibraryStore implements BlockLibraryStore {
       savedAt: new Date().toISOString(),
     }
     this.saved.unshift(entry)
+    this.persist()
     return structuredClone(entry)
   }
 
@@ -144,11 +189,13 @@ export class InMemoryBlockLibraryStore implements BlockLibraryStore {
     const entry = this.saved.find((s) => s.id === id)
     if (!entry) throw new Error(`Saved block not found: ${id}`)
     entry.name = name
+    this.persist()
     return structuredClone(entry)
   }
 
   async remove(id: string): Promise<void> {
     this.saved = this.saved.filter((s) => s.id !== id)
+    this.persist()
   }
 }
 

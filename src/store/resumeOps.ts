@@ -1,6 +1,7 @@
 import type { Resume, ResumeBlock, SectionType, TemplateId } from '../types'
 import { isRepeatable } from '../types/index.js'
 import { blankBlock } from '../data/seed.js'
+import { mergeInto } from './entries.js'
 
 /**
  * Pure resume mutations. Each takes a resume and returns a new one, never
@@ -53,6 +54,15 @@ export function addBlock(resume: Resume, type: SectionType, title?: string, atIn
 
 export function insertBlock(resume: Resume, block: Omit<ResumeBlock, 'id'>, atIndex?: number): Resume {
   const next = cloneResume(resume)
+  // Built-ins are one per resume, so a saved Experience entry dropped onto a
+  // resume that already has Experience joins that section (skipping items it
+  // already holds) instead of creating a second one. The section is shown,
+  // since the user just asked for its content.
+  const existing = isRepeatable(block.type) ? -1 : next.blocks.findIndex((b) => b.type === block.type)
+  if (existing !== -1) {
+    next.blocks[existing] = { ...mergeInto(next.blocks[existing], block), enabled: true }
+    return next
+  }
   // A library block is a copy: it gets a fresh id and never aliases the
   // saved entry, so later edits cannot write back into the library.
   placeAt(next.blocks, { ...structuredClone(block), id: nextId('b') } as ResumeBlock, atIndex)

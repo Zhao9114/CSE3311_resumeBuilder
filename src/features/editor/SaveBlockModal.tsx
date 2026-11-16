@@ -34,7 +34,7 @@ export default function SaveBlockModal({
 
   return (
     <Modal
-      title="Save block to library"
+      title="Save section to block bank"
       onClose={onClose}
       footer={
         <>
@@ -72,8 +72,9 @@ export default function SaveBlockModal({
           />
         </label>
         <p className="pane-sub">
-          Saves a copy of “{block.label}” as it is now. Later edits to the
-          resume will not change the saved version.
+          Saves a copy of the whole “{block.label}” section as it is now, for
+          every resume you build. Later edits will not change the saved copy.
+          To save one role or project, use “Save to bank” on that entry.
         </p>
       </form>
     </Modal>

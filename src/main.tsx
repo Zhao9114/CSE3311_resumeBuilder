@@ -11,6 +11,7 @@ import './styles/templates.css'
 import './styles/sprint8.css'
 import './styles/iteration2.css'
 import './styles/dnd.css'
+import './styles/iteration4.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root element #root not found')

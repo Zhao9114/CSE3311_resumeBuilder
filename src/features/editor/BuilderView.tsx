@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Save, ScanSearch } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Eye, PencilLine, Save, ScanSearch } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { useReducedMotion } from '../../components/useReducedMotion'
-import { useBlockLibrary, useResume, useVersions } from '../../store'
+import { entryFingerprint, splitIntoEntries, useBlockLibrary, useResume, useVersions, type BlockDraft } from '../../store'
+import { EntryBankProvider } from './EntryBank'
 import {
   BUILT_IN_SECTION_TYPES,
   SECTION_LABELS,
@@ -10,6 +11,7 @@ import {
   type SectionType,
 } from '../../types'
 import AtsPanel from '../ats/AtsPanel'
+import type { TailorResult } from '../../services/tailor'
 import { useBuilderDnd } from '../dnd/BuilderDnd'
 import DropZones from '../dnd/DropZones'
 import PaletteChip from './PaletteChip'
@@ -47,10 +49,19 @@ export default function BuilderView() {
     savedBlocks,
     loading: libraryLoading,
     saveBlock,
+    saveEntries,
+    renameBlock,
     removeBlock: removeSavedBlock,
   } = useBlockLibrary()
+  const bankFingerprints = useMemo(
+    () => new Set(savedBlocks.map((s) => entryFingerprint(s.block))),
+    [savedBlocks],
+  )
   const [savingBlock, setSavingBlock] = useState<ResumeBlock | null>(null)
   const [atsOpen, setAtsOpen] = useState(false)
+  // On a phone the editor and the page don't fit side by side, so one is
+  // shown at a time. Ignored on wider screens (see iteration4.css).
+  const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   // Set when a custom section is added, so its editor can be opened as soon
   // as the new block appears in the resume.
@@ -91,6 +102,51 @@ export default function BuilderView() {
     }
   }, [resume, pendingCustom])
 
+  async function handleAddAllToBank() {
+    if (!resume) return
+    const entries = resume.blocks.flatMap((b) => {
+      const { id: _id, ...draft } = b
+      return splitIntoEntries(draft)
+    })
+    const added = await saveEntries(entries)
+    toast({
+      message: added
+        ? `Added ${added} ${added === 1 ? 'entry' : 'entries'} to your block bank`
+        : 'Everything on this resume is already in your bank',
+    })
+  }
+
+  function handleSaveEntry(entry: BlockDraft) {
+    void saveEntries([entry]).then((added) => {
+      if (added) toast({ message: 'Saved to your block bank' })
+    })
+  }
+
+  function handleInsertSaved(block: BlockDraft) {
+    recordUndo(`inserted ${block.label}`)
+    void insertBlock(block)
+    toast({ message: `Added to ${block.label}`, action: { label: 'Undo', run: undo } })
+  }
+
+  async function handleApplyTailored(draft: TailorResult, postingTitle: string) {
+    if (!resume) return
+    const job = postingTitle || 'this job'
+    // A frozen copy first, so the untailored resume is always one click away
+    // in Versions even after the undo history is gone.
+    await saveVersion(resume, `Before tailoring: ${job}`)
+    recordUndo(`tailored for ${job}`)
+    void replaceResume({ ...draft.resume, id: resume.id, title: resume.title })
+    setAtsOpen(false)
+    toast({ message: `Tailored for ${job}`, action: { label: 'Undo', run: undo } })
+  }
+
+  async function handleSaveTailored(draft: TailorResult, postingTitle: string) {
+    if (!resume) return
+    const label = `Tailored: ${postingTitle || 'job posting'}`
+    const saved = await saveVersion({ ...draft.resume, id: resume.id, title: label }, label)
+    if (saved) toast({ message: `Saved “${label}” to Versions` })
+  }
+
   function handleAddCustom() {
     const existing = resume?.blocks.filter((b) => b.type === 'custom') ?? []
     setPendingCustom(new Set(existing.map((b) => b.id)))
@@ -98,7 +154,23 @@ export default function BuilderView() {
   }
 
   return (
-    <main className="builder-view">
+    <EntryBankProvider value={{ saved: bankFingerprints, saveEntry: handleSaveEntry }}>
+    <main className="builder-view" data-pane={mobilePane}>
+      <div className="mobile-switch no-print" role="group" aria-label="Show">
+        <button type="button" aria-pressed={mobilePane === 'edit'} onClick={() => setMobilePane('edit')}>
+          <PencilLine size={15} aria-hidden="true" /> Edit
+        </button>
+        <button
+          type="button"
+          aria-pressed={mobilePane === 'preview'}
+          onClick={() => {
+            setMobilePane('preview')
+            window.scrollTo({ top: 0 })
+          }}
+        >
+          <Eye size={15} aria-hidden="true" /> Preview
+        </button>
+      </div>
       <section className="editor-pane">
         <div className="pane-head">
           <div>
@@ -192,8 +264,10 @@ export default function BuilderView() {
         <BlockLibraryPanel
           savedBlocks={savedBlocks}
           loading={libraryLoading}
-          onInsert={insertBlock}
+          onInsert={handleInsertSaved}
           onRemove={removeSavedBlock}
+          onRename={renameBlock}
+          onAddAll={() => void handleAddAllToBank()}
         />
         <VersionsPanel
           versions={versions}
@@ -245,7 +319,15 @@ export default function BuilderView() {
         />
       )}
 
-      {atsOpen && <AtsPanel onClose={() => setAtsOpen(false)} />}
+      {atsOpen && (
+        <AtsPanel
+          onClose={() => setAtsOpen(false)}
+          bank={savedBlocks}
+          onApplyTailored={(draft, title) => void handleApplyTailored(draft, title)}
+          onSaveTailored={(draft, title) => void handleSaveTailored(draft, title)}
+        />
+      )}
     </main>
+    </EntryBankProvider>
   )
 }

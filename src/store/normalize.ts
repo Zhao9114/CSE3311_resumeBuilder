@@ -141,7 +141,15 @@ export function normalizeBlock(block: ResumeBlock): ResumeBlock {
       return {
         ...block,
         label,
-        data: { items: block.data.items.map((p) => ({ name: t(p.name), detail: t(p.detail) })) },
+        data: {
+          items: block.data.items.map((p) => ({
+            name: t(p.name),
+            detail: t(p.detail),
+            // Only kept when set, so entries without a link compare equal to
+            // ones saved before the field existed.
+            ...(p.url?.trim() ? { url: t(p.url) } : {}),
+          })),
+        },
       }
     case 'custom':
       return {
@@ -270,7 +278,13 @@ export function parseBlock(raw: unknown): ResumeBlock | null {
       return {
         ...base,
         type: 'projects',
-        data: { items: objs(data.items).map((i) => ({ name: str(i.name), detail: str(i.detail) })) },
+        data: {
+          items: objs(data.items).map((i) => ({
+            name: str(i.name),
+            detail: str(i.detail),
+            ...(str(i.url).trim() ? { url: str(i.url).trim() } : {}),
+          })),
+        },
       }
     case 'custom':
       return {

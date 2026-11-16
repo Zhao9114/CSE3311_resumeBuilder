@@ -6,3 +6,4 @@
 export const MIN_JOB_DESCRIPTION = 50
 export const MAX_JOB_DESCRIPTION = 12_000
 export const MAX_ASSISTANT_MESSAGE = 2_000
+export const MAX_BANK_ENTRIES = 100

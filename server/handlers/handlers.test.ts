@@ -5,8 +5,10 @@ import type { GenerateRequest, GenerateResult, Model } from '../ai/model'
 import type { AiDeps } from '../deps'
 import type { ServerConfig } from '../env'
 import { MemoryRateLimiter } from '../limits/rateLimiter'
-import { handleAssistant, OFF_TOPIC_REPLY } from './assistant'
+import { handleAssistant, LINK_REPLY, OFF_TOPIC_REPLY } from './assistant'
 import { handleAts } from './ats'
+import { handleTailor, inventedKeywords } from './tailor'
+import { seedBank } from '../../src/data/seed'
 
 // Response bodies are checked field by field below, so read them loosely.
 const read = (res: Response): Promise<any> => res.json()
@@ -238,5 +240,143 @@ describe('POST /api/assistant', () => {
     expect(items).toContain('Docker')
     // The skill already listed is not repeated.
     expect(items.filter((s: string) => s === first.items.split(',')[0].trim())).toHaveLength(1)
+  })
+})
+
+describe('POST /api/tailor', () => {
+  const keywords = {
+    required: [{ term: 'Kubernetes', aliases: ['k8s'] }, { term: 'Terraform', aliases: [] }, { term: 'AWS', aliases: [] }],
+    preferred: [{ term: 'CI/CD', aliases: [] }],
+  }
+  const request = (extra: Record<string, unknown> = {}) =>
+    post('/api/tailor', { resume: seedResume, bank: seedBank, postingTitle: 'Cloud intern', keywords, ...extra })
+  const summary = (body: any) => body.resume.blocks.find((b: any) => b.type === 'summary').data.text
+
+  it('retrieves bank entries in code, then has the model write only the summary', async () => {
+    const model = new FakeModel([
+      { ok: true, data: { summary: 'CS student who built a Kubernetes homelab on AWS with Terraform.' }, usage: USAGE },
+    ])
+    const res = await handleTailor(request(), deps(model))
+    expect(res.status).toBe(200)
+    const body = await read(res)
+    expect(body.picks.some((p: any) => p.name === 'Kubernetes Homelab' && p.source === 'bank')).toBe(true)
+    expect(summary(body)).toContain('Kubernetes homelab')
+    expect(body.summarySource).toBe('model')
+    expect(body.scoreAfter).toBeGreaterThan(body.scoreBefore)
+    // One call, and the prompt holds only the chosen entries — not the whole bank.
+    expect(model.calls).toHaveLength(1)
+    const content = model.calls[0].messages[0].content as string
+    expect(content).toContain('Kubernetes Homelab')
+    expect(content).not.toContain('Review Sentiment Analyzer')
+  })
+
+  it('discards a summary that names a keyword the draft does not have', async () => {
+    const model = new FakeModel([
+      { ok: true, data: { summary: 'Engineer experienced with Kubernetes and GraphQL.' }, usage: USAGE },
+    ])
+    const res = await handleTailor(
+      request({ keywords: { ...keywords, preferred: [{ term: 'GraphQL', aliases: [] }] } }),
+      deps(model),
+    )
+    const body = await read(res)
+    expect(body.summarySource).toBe('original')
+    expect(body.notice).toContain('GraphQL')
+    expect(summary(body)).toBe((seedResume.blocks[0] as any).data.text)
+  })
+
+  it('still returns the retrieved draft when the AI is off, without calling anything', async () => {
+    const res = await handleTailor(request(), deps(null))
+    expect(res.status).toBe(200)
+    const body = await read(res)
+    expect(body.summarySource).toBe('original')
+    expect(body.notice).toMatch(/AI is off/)
+    expect(body.picks.length).toBeGreaterThan(0)
+  })
+
+  it('falls back to the original summary when over the limit, and records nothing', async () => {
+    const model = new FakeModel([])
+    const limiter = new MemoryRateLimiter()
+    const d = deps(model, { limiter, config: { ...config, budgetUsd: 0 } })
+    const body = await read(await handleTailor(request(), d))
+    expect(body.summarySource).toBe('original')
+    expect(body.notice).toBeTruthy()
+    expect(model.calls).toHaveLength(0)
+  })
+
+  it('falls back cleanly when the model output is unusable', async () => {
+    const model = new FakeModel([{ ok: false, reason: 'invalid', usage: USAGE }])
+    const body = await read(await handleTailor(request(), deps(model)))
+    expect(body.summarySource).toBe('original')
+    expect(body.notice).toMatch(/could not write/)
+  })
+
+  it('drops malformed bank entries and refuses an oversized bank', async () => {
+    const model = new FakeModel([{ ok: true, data: { summary: '' }, usage: USAGE }])
+    const ok = await handleTailor(request({ bank: [{ block: { type: 'nonsense' } }, 42, ...seedBank] }), deps(model))
+    expect(ok.status).toBe(200)
+    const tooMany = await handleTailor(request({ bank: Array.from({ length: 101 }, () => seedBank[0]) }), deps(null))
+    expect(tooMany.status).toBe(400)
+  })
+
+  it('flags invented keywords in code', () => {
+    const kws = [{ term: 'Go', aliases: ['golang'] }, { term: 'React', aliases: [] }]
+    expect(inventedKeywords('Built React apps in golang.', 'React, TypeScript', kws)).toEqual(['Go'])
+  })
+})
+
+describe('POST /api/assistant: education, projects, links, advice', () => {
+  it('turns "add my education" into an Education card appended to the existing section', async () => {
+    const model = new FakeModel([
+      {
+        ok: true,
+        data: { reply: 'Added your degree.', school: 'Collin College', degree: 'A.S. Computer Science', dates: '2024', detail: '' },
+        usage: USAGE,
+      },
+    ])
+    const body = await read(await handleAssistant(chat('Add my education: A.S. Computer Science, Collin College, 2024'), deps(model)))
+    expect(body.intent).toBe('draft_education')
+    const edu = seedResume.blocks.find((b) => b.type === 'education')!
+    expect(body.proposals).toHaveLength(1)
+    expect(body.proposals[0].replaces).toBe(edu.id)
+    expect(body.proposals[0].block.data.items.map((i: any) => i.school)).toEqual([
+      'University of Texas at Arlington',
+      'Collin College',
+    ])
+  })
+
+  it('turns "add a project" into a Projects card, keeping a link only if one was given', async () => {
+    const model = new FakeModel([
+      { ok: true, data: { reply: 'Here it is.', name: 'Discord Bot', detail: 'A Python bot.', url: '' }, usage: USAGE },
+    ])
+    const body = await read(await handleAssistant(chat('Add a project: a Discord bot I built in Python'), deps(model)))
+    expect(body.intent).toBe('draft_project')
+    const item = body.proposals[0].block.data.items.at(-1)
+    expect(item.name).toBe('Discord Bot')
+    expect(item.url).toBeUndefined()
+    expect(body.proposals[0].block.enabled).toBe(true)
+  })
+
+  it('answers a request to read a web page with a fixed reply and no model call', async () => {
+    const model = new FakeModel([])
+    const limiter = new MemoryRateLimiter()
+    const body = await read(
+      await handleAssistant(chat('import my education from my homepage https://jordan.dev'), deps(model, { limiter })),
+    )
+    expect(body.text).toBe(LINK_REPLY)
+    expect(body.proposals).toEqual([])
+    expect(model.calls).toHaveLength(0)
+    expect(limiter.totalSpend()).toBe(0)
+  })
+
+  it('tells the model in advice mode that it cannot edit, and gives it the app guide', async () => {
+    const model = new FakeModel([
+      { ok: true, data: { intent: 'general_advice', skills: [] }, usage: USAGE },
+      { ok: true, data: { reply: 'Pick the Compact template in the Template row.' }, usage: USAGE },
+    ])
+    const body = await read(await handleAssistant(chat('Make layout more compact'), deps(model)))
+    expect(body.proposals).toEqual([])
+    const system = model.calls[1].system
+    expect(system).toMatch(/cannot change the resume/)
+    expect(system).toMatch(/Template row/)
   })
 })

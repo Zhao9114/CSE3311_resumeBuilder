@@ -58,6 +58,8 @@ export interface EducationData {
 export interface ProjectItem {
   name: string
   detail: string
+  /** Optional link (repo, demo). Rendered as a clickable link in the PDF. */
+  url?: string
 }
 export interface ProjectsData {
   items: ProjectItem[]

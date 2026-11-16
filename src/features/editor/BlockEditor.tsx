@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { moveItem } from '../../store/resumeOps'
 import SortableList from './SortableList'
+import { SaveEntryButton } from './EntryBank'
 import type {
   CustomEntry,
   EducationItem,
@@ -53,6 +54,7 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
               <div className="sub-item-head">
                 {handle}
                 <span>Role {i + 1}</span>
+                <SaveEntryButton block={block} index={i} />
               </div>
               <label className="field">
                 <span>Role</span>
@@ -142,6 +144,7 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
               <div className="sub-item-head">
                 {handle}
                 <span>Skill group {i + 1}</span>
+                <SaveEntryButton block={block} index={i} />
               </div>
               <div className="field-row">
                 <label className="field">
@@ -201,6 +204,7 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
               <div className="sub-item-head">
                 {handle}
                 <span>Education {i + 1}</span>
+                <SaveEntryButton block={block} index={i} />
               </div>
               <label className="field">
                 <span>School</span>
@@ -277,14 +281,26 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
               <div className="sub-item-head">
                 {handle}
                 <span>Project {i + 1}</span>
+                <SaveEntryButton block={block} index={i} />
               </div>
-              <label className="field">
-                <span>Project name</span>
-                <input
-                  value={item.name}
-                  onChange={(e) => patch(i, { name: e.target.value })}
-                />
-              </label>
+              <div className="field-row">
+                <label className="field">
+                  <span>Project name</span>
+                  <input
+                    value={item.name}
+                    onChange={(e) => patch(i, { name: e.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Link (optional)</span>
+                  <input
+                    value={item.url ?? ''}
+                    onChange={(e) => patch(i, { url: e.target.value })}
+                    placeholder="github.com/you/project"
+                    inputMode="url"
+                  />
+                </label>
+              </div>
               <label className="field">
                 <span>Detail</span>
                 <textarea
@@ -343,6 +359,7 @@ export default function BlockEditor({ block, onChange }: BlockEditorProps) {
               <div className="sub-item-head">
                 {handle}
                 <span>Entry {i + 1}</span>
+                <SaveEntryButton block={block} index={i} />
               </div>
               <div className="field-row">
                 <label className="field">

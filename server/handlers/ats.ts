@@ -84,11 +84,15 @@ export async function handleAts(request: Request, deps: AiDeps): Promise<Respons
     if (!result.ok) return modelFailure(result.reason)
 
     const { postingTitle, seniority, required, preferred, tips } = result.data
-    const score = scoreResume(resumeText, required.slice(0, 15), preferred.slice(0, 10))
+    const keywords = { required: required.slice(0, 15), preferred: preferred.slice(0, 10) }
+    const score = scoreResume(resumeText, keywords.required, keywords.preferred)
     return json({
       ...score,
       postingTitle,
       seniority,
+      // Handed back so "Build tailored resume" can rank the block bank
+      // against the same keywords without a second extraction call.
+      keywords,
       tips: tips
         .filter((t) => t.text.trim() !== '')
         .slice(0, 5)

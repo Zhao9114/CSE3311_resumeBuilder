@@ -24,6 +24,24 @@ Iteration 3 adds the AI and reworks the interface:
   Remove zones. Every change can be undone with Ctrl/Cmd+Z. See
   [Drag and drop](#drag-and-drop).
 
+Iteration 4 (final) turns the block library into a **block bank** and adds
+**retrieval-augmented tailoring**:
+
+- **Block bank.** Save each role, project, education entry and skill group on
+  its own ("Save to bank", or "Add all entries from this resume"). Inserting
+  an entry joins the existing section instead of creating a second one. See
+  [Block bank](#block-bank).
+- **Tailoring (RAG).** After an ATS check, "Build tailored resume" ranks every
+  entry on the resume and in the bank against the posting's keywords *in
+  code*, assembles a resume from the best ones, and has Haiku rewrite only the
+  summary from those entries. See [Tailoring](#tailoring-rag).
+- **Assistant fixes.** It can now add education and projects, never claims to
+  have changed the resume in advice mode, answers "how do I..." with steps in
+  Draftly's own UI, and says plainly that it can't open links.
+- **Paper fixes.** Links in the header and an optional project link are real
+  links in the PDF; Compact is genuinely dense with its own print margins; on
+  phones an Edit / Preview switch replaces the long stacked page.
+
 ## Running it
 
 Prerequisites: Node.js 18+ and npm.
@@ -197,17 +215,52 @@ The Export PDF button switches to the builder and calls `window.print()`. A
 print stylesheet hides the app chrome so only the resume paper prints, with
 page margins and `break-inside: avoid` on sections and items.
 
-## Saved blocks
+## Block bank
 
-Any section can be saved to the block library with a name and tags — keep an
-`Experience — Frontend` and an `Experience — Backend`, then insert whichever
-suits the posting. Inserting adds a **copy**: the saved entry is cloned on
-save and again on insert, so editing the resume afterwards never writes back
-into the library.
+The bank holds **entries**: one role, one project, one education entry, one
+skill group, or a summary. Save one with **Save to bank** on that entry in the
+editor, or press **Add all entries from this resume**; duplicates (same text,
+ignoring case and spacing) are skipped. A whole section can still be saved
+from its card. Entries belong to the user, not to a resume or version, so they
+are available to every resume they build.
 
-The library lives behind `BlockLibraryStore`, alongside the other stores, and
-is exposed as the `useBlockLibrary` hook. In Supabase mode it is saved to the
-`saved_blocks` table.
+- An entry is stored as an ordinary block holding a single item
+  (`src/store/entries.ts`), so it uses the existing `saved_blocks` table,
+  mappers and validation with **no migration**.
+- **Insert** (or drag in) adds a copy. For a built-in section the resume
+  already has, the entry **joins that section** (skipping items it already
+  holds) and the section is shown. This also fixed iteration 3's bug where
+  inserting a saved Skills block created a second Skills section.
+- Entries can be renamed, filtered by tag, and are grouped by section.
+- Demo mode starts with a seeded bank (the demo resume's entries plus extra
+  roles and projects that are not on it) and keeps it in this browser's
+  localStorage. Signed in, it lives in `saved_blocks` behind row-level security.
+
+## Tailoring (RAG)
+
+"Build tailored resume" in the ATS panel (`POST /api/tailor`,
+`server/handlers/tailor.ts`) is retrieval-augmented generation in three steps:
+
+1. **Retrieve, in code** (`server/ai/retrieve.ts`). Every entry on the resume
+   and in the bank is scored against the keywords the ATS check extracted:
+   3 points per required keyword it covers, 1 per nice-to-have, using the same
+   matcher as the ATS score. The draft takes the 3 most relevant roles, up to 2
+   projects that cover a keyword, the resume's skill groups plus matching bank
+   groups, and the resume's education. Matching bullets and skills move to the
+   top. This costs nothing, gives the same picks for the same inputs, and every
+   pick shows which keywords earned it.
+2. **Augment and generate.** One Haiku call (`max_tokens` 400) sees **only the
+   chosen entries** and the matched keywords, and returns only a summary.
+3. **Check in code.** A summary that names a posting keyword the draft does not
+   contain is discarded (`inventedKeywords`). The draft is re-scored, so the
+   panel shows the change, e.g. "25 → 83".
+
+The user sees each pick (from the resume or the bank, with its matched
+keywords), what was left out, and the score change, then chooses **Apply**
+(the current resume is saved as a "Before tailoring" version first, and the
+change can be undone) or **Save as version only**. If the AI is off, over the
+limit or out of budget, the retrieved draft still comes back with the original
+summary and a note saying why. Measured live: about 2.6 s and $0.0002 per tailoring call.
 
 ## AI features
 
@@ -228,15 +281,20 @@ tab's session storage for free.
 planned for iteration 4:
 
 1. Keyword rules classify the message: write a summary, draft an experience
-   entry, rewrite bullets, add skills, tailor to a job, give advice, or off
-   topic. This costs nothing.
+   entry, rewrite bullets, add skills, add education, add a project, tailor to
+   a job, give advice, or off topic. This costs nothing.
 2. Only if the rules aren't confident does a small Haiku call classify it.
 3. Off-topic messages and prompt-injection openers ("ignore previous
    instructions…") are refused **without any model call** and don't count
-   against the limit.
+   against the limit. So is a request to read a link ("import from my
+   homepage ..."): the assistant cannot open web pages, and says so.
 4. The intent picks the prompt and the output schema. "Rewrite bullets" can
    only return new bullets for the existing roles, and the role, employer and
    dates are copied from the resume, not from the model.
+
+In advice mode the model is told it cannot change the resume and is given a
+short guide to Draftly's controls, so "make the layout more compact" comes
+back as "pick Compact in the Template row", not an offer it can't keep.
 
 Replies come back as **proposal cards**. Nothing changes on the resume until
 the user presses Insert or Replace, or drags the card into the section list.
@@ -252,7 +310,8 @@ Every generated block passes the same `parseBlock` check as a database row.
 | Total spend, all users | $4.00 (`AI_BUDGET_USD`); after that, both features fall back to labelled sample output |
 | Hard backstop | A $5 spend limit set in the Anthropic Console |
 | Input size | Posting ≤ 12,000 chars, message ≤ 2,000 chars, last 4 chat turns |
-| Output size | `max_tokens` 2,000 (ATS, assistant), 400 (intent) |
+| Output size | `max_tokens` 2,000 (ATS, assistant), 400 (intent, tailoring summary) |
+| Block bank sent for tailoring | ≤ 100 entries, blocks only (no names or tags) |
 
 Every call's tokens and dollar cost are written to the `ai_usage` table, which
 browsers can't read or write. A query at the bottom of the migration shows
@@ -295,11 +354,14 @@ editor, the palette, the block library, the assistant drawer and the paper:
 | `src/store/supabaseMappers.test.ts` | Database round trip: `resumeToRow`/`resumeFromRow`, `versionToRow`/`versionFromRow`, `applicationToRow`/`applicationFromRow`, `savedBlockToRow`/`savedBlockFromRow`, preserving block order and visibility |
 | `src/store/supabaseStore.test.ts` | `SupabaseResumeStore` on a fake client: exactly one starter resume for a new user, a burst of edits collapsing into one write of the newest state, reload matching what was saved, and a failed write being retried (`flush`, sync status) |
 | `src/store/normalize.test.ts` | `normalizeDateText`, `normalizeIsoDate`, `normalizeResume`, `normalizeApplication`, and `parseResume`/`parseBlock` on malformed rows |
+| `src/store/entries.test.ts` | Splitting sections into entries, entry names, duplicate detection (`entryFingerprint`), and an inserted entry joining the existing section instead of duplicating it |
+| `server/ai/retrieve.test.ts` | Tailoring retrieval: ranking by keyword coverage with required weighted above preferred, resume/bank de-duplication, per-section caps, only known entries used, ids and order kept, bullet and skill reordering, determinism |
+| `src/lib/links.test.ts` | Which contact parts become links (`mailto:`, bare domains, not "Node.js"), splitting the Links field |
 | `src/store/resumeOps.test.ts` | Drag-and-drop inserts at a position (`addBlock`/`insertBlock` with `atIndex`), the one-per-type rule still holding, and `moveItem` for reordering inside a section |
-| `src/ai/intent.test.ts` | The intent parser's rules: each intent, pasted postings, off-topic and prompt-injection refusals, ambiguous messages left to the model, skill extraction |
+| `src/ai/intent.test.ts` | The intent parser's rules: each intent (including education and projects), questions vs. requests, link requests, pasted postings, off-topic and prompt-injection refusals, ambiguous messages left to the model, skill extraction |
 | `server/ai/atsScore.test.ts` | ATS keyword matching (case, punctuation, Node.js/NodeJS, aliases, plurals, whole words, phrases) and the score and verdict |
 | `server/limits/rateLimiter.test.ts` | Per-minute and rolling 24-hour limits, separate identities, the global spend cap |
-| `server/handlers/handlers.test.ts` | Both endpoints against a fake model: scoring in code, posting fenced as data, validation, AI off, budget exhausted and off-topic **with no model call**, IP rate limits, cost charged even on bad output, refusals, bullets-only rewrites, skill merging |
+| `server/handlers/handlers.test.ts` | All three endpoints against a fake model. Tailoring: one summary call over only the chosen entries, the invented-keyword check, and its fallbacks. Assistant: education/project cards, the link reply, advice mode's no-edit rule. Plus: scoring in code, posting fenced as data, validation, AI off, budget exhausted and off-topic **with no model call**, IP rate limits, cost charged even on bad output, refusals, bullets-only rewrites, skill merging |
 | `src/store/rls.integration.test.ts` | `npm run test:rls`: against the real database, with two test users. Another user can't read, update, delete or insert-as the owner's rows; can't see or link to their versions; versions can't be edited; signed-out visitors see nothing; no browser session can read or write the AI usage ledger or call its functions |
 
 ## Supabase setup
@@ -340,7 +402,9 @@ editor, the palette, the block library, the assistant drawer and the paper:
 ## AI setup
 
 1. **Create the ledger.** In the Supabase SQL editor, run
-   `supabase/migrations/0002_iteration3_ai.sql`. It is safe to re-run.
+   `supabase/migrations/0002_iteration3_ai.sql`, then
+   `supabase/migrations/0003_iteration4_tailor.sql` (lets the ledger record
+   the tailoring route). Both are safe to re-run.
 2. **Get an Anthropic key** at console.anthropic.com. Under **Billing →
    Limits**, set a **monthly spend limit of $5**. That is the hard backstop
    behind the app's own $4 cap.
@@ -361,11 +425,14 @@ editor, the palette, the block library, the assistant drawer and the paper:
    `ANTHROPIC_API_KEY` from Vercel and redeploy. Both features then fall back
    to labelled sample output and make no calls.
 
-## Not in iteration 3
+## Future work
 
-Retrieval over many past postings, job recommendations and richer analytics
-are iteration 4. The intent parser is where that retrieval will plug in: an
-intent such as "tailor to job" will decide when to fetch similar postings.
+- **Embeddings.** Retrieval is keyword-based, so it misses synonyms outside
+  the alias list. Embeddings (for example pgvector) would add a second signal.
+- **Per-bullet entries**, so tailoring can pick the best bullets inside a role.
+- **Storing postings on applications**, for retrieval over past postings and
+  job recommendations.
+- **Importing from a URL** (the assistant currently asks for pasted text).
 
 `legacy-demo/` holds the original vanilla HTML/CSS/JS prototype this was
 built from, kept for reference.
