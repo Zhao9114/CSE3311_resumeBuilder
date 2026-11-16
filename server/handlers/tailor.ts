@@ -39,7 +39,7 @@ const SYSTEM = [
   NO_INVENTION,
   '',
   'The <resume> has already been tailored to the job in <job_posting>: its entries were chosen for it.',
-  'Write a 2-3 sentence summary of this candidate aimed at that job, using only facts in <resume>.',
+  'Write a 2-3 sentence summary (under 60 words) of this candidate aimed at that job, using only facts in <resume>.',
   'Where the resume genuinely supports them, mention the keywords listed in <matched_keywords>.',
   'Never mention a skill, tool or qualification that is not in <resume>.',
   'No first person ("I"), no markdown, no placeholders, no buzzword lists.',

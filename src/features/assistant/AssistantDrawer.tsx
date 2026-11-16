@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { itemKeys } from '../../store/entries'
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical, Send, Sparkles, X } from 'lucide-react'
 import { INTENT_LABELS } from '../../ai/intent'
@@ -245,6 +246,10 @@ function ProposalCard({ dragId, proposal, replacing, done, onApply, onDropped }:
   const data: DragData = { kind: 'proposal', block: proposal.block, onApplied: onDropped }
   const { setNodeRef, listeners, isDragging } = useDraggable({ id: dragId, data, disabled: !draggable })
   const fromCard = (e: React.SyntheticEvent) => !(e.target as HTMLElement).closest('button')
+  // A card that keeps everything in the section and adds to it (a new role,
+  // education entry or project) says so, rather than "Replace", which reads
+  // as if the existing entries would be lost.
+  const adds = !!replacing && addsOnly(replacing, proposal.block)
 
   return (
     <div
@@ -260,13 +265,20 @@ function ProposalCard({ dragId, proposal, replacing, done, onApply, onDropped }:
           {proposal.block.label}
         </span>
         <span className="block-meta">
-          {replacing ? `Replaces your ${replacing.label}` : draggable ? 'New section · drag into your list' : 'New section'}
+          {replacing ? (adds ? `Adds to your ${replacing.label}` : `Replaces your ${replacing.label}`) : draggable ? 'New section · drag into your list' : 'New section'}
         </span>
       </div>
       <pre className="proposal-preview">{previewText(proposal)}</pre>
       <button type="button" className="btn btn-primary btn-sm" disabled={done} onClick={onApply}>
-        {done ? 'Applied' : replacing ? `Replace ${replacing.label}` : 'Insert'}
+        {done ? 'Applied' : replacing ? (adds ? `Add to ${replacing.label}` : `Replace ${replacing.label}`) : 'Insert'}
       </button>
     </div>
   )
+}
+
+/** True when `next` holds every item of `current` plus at least one more. */
+function addsOnly(current: ResumeBlock, next: ResumeBlock): boolean {
+  const have = new Set(itemKeys(next))
+  const old = itemKeys(current)
+  return old.every((k) => have.has(k)) && have.size > old.length
 }
