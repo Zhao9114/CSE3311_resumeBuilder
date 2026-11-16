@@ -6,13 +6,13 @@ interface ProfileEditorProps {
   onChange: (patch: Partial<Profile>) => void
 }
 
-const FIELDS: { key: keyof Profile; label: string }[] = [
+const FIELDS: { key: keyof Profile; label: string; placeholder?: string }[] = [
   { key: 'name', label: 'Full name' },
   { key: 'title', label: 'Headline' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'location', label: 'Location' },
-  { key: 'links', label: 'Links' },
+  { key: 'links', label: 'Links (clickable in the PDF)', placeholder: 'github.com/you · linkedin.com/in/you' },
 ]
 
 /** Collapsible header editor for the name and contact line. */
@@ -46,6 +46,7 @@ export default function ProfileEditor({ profile, onChange }: ProfileEditorProps)
                 <input
                   value={profile[field.key]}
                   onChange={(e) => onChange({ [field.key]: e.target.value })}
+                  placeholder={field.placeholder}
                 />
               </label>
             ))}

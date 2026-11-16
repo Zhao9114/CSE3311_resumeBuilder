@@ -4,9 +4,18 @@ import { MAX_JOB_DESCRIPTION, MIN_JOB_DESCRIPTION } from '../../ai/limits'
 import { useResume } from '../../store'
 import { AiError } from '../../services/aiClient'
 import { atsService, SAMPLE_ATS_RESULT, type AtsResult } from '../../services/ats'
+import { canTailor, tailorService, type TailorResult } from '../../services/tailor'
+import type { SavedBlock } from '../../types'
+import TailorResultView from './TailorResultView'
 
 interface AtsPanelProps {
   onClose: () => void
+  /** The user's block bank, which tailoring picks from. */
+  bank: SavedBlock[]
+  /** Replaces the live resume with the draft (after snapshotting it). */
+  onApplyTailored: (draft: TailorResult, postingTitle: string) => void
+  /** Saves the draft as a version without touching the live resume. */
+  onSaveTailored: (draft: TailorResult, postingTitle: string) => void
 }
 
 /** Errors where sample output is more useful than a dead end. */
@@ -23,13 +32,30 @@ function scoreTone(score: number): 'good' | 'fair' | 'weak' {
  * posting asks for; the match and the score are computed on the server in
  * plain code, so they are repeatable (see server/ai/atsScore.ts).
  */
-export default function AtsPanel({ onClose }: AtsPanelProps) {
+export default function AtsPanel({ onClose, bank, onApplyTailored, onSaveTailored }: AtsPanelProps) {
   const { resume } = useResume()
   const [jobDescription, setJobDescription] = useState('')
   const [result, setResult] = useState<AtsResult | null>(null)
   const [isSample, setIsSample] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  const [tailored, setTailored] = useState<TailorResult | null>(null)
+  const [tailoring, setTailoring] = useState(false)
+  const [tailorError, setTailorError] = useState<string | null>(null)
+
+  async function handleTailor() {
+    if (!resume || !canTailor(result) || tailoring) return
+    setTailoring(true)
+    setTailorError(null)
+    try {
+      setTailored(await tailorService.build(resume, bank, result))
+    } catch (err) {
+      setTailored(null)
+      setTailorError(err instanceof Error ? err.message : 'Tailoring failed.')
+    } finally {
+      setTailoring(false)
+    }
+  }
 
   const length = jobDescription.trim().length
   const tooShort = length < MIN_JOB_DESCRIPTION
@@ -40,6 +66,8 @@ export default function AtsPanel({ onClose }: AtsPanelProps) {
     if (!resume || tooShort || tooLong || running) return
     setRunning(true)
     setError(null)
+    setTailored(null)
+    setTailorError(null)
     try {
       setResult(await atsService.analyze(resume, jobDescription))
       setIsSample(false)
@@ -191,6 +219,43 @@ export default function AtsPanel({ onClose }: AtsPanelProps) {
                 <p className="field-hint">
                   Only add a missing keyword if you really have that experience.
                 </p>
+              )}
+            </div>
+          )}
+
+          {!isSample && canTailor(result) && (
+            <div className="ats-group tailor">
+              <h4>Tailor from your block bank</h4>
+              {!tailored && (
+                <>
+                  <p className="field-hint">
+                    Picks the roles, projects and skills from your resume and your {bank.length}{' '}
+                    saved {bank.length === 1 ? 'entry' : 'entries'} that best cover this posting&apos;s
+                    keywords, then rewrites the summary from only those facts. Nothing changes
+                    until you apply it.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => void handleTailor()}
+                    disabled={tailoring}
+                  >
+                    {tailoring ? 'Building…' : 'Build tailored resume'}
+                  </button>
+                </>
+              )}
+              {tailorError && (
+                <p className="error-banner" role="alert">
+                  {tailorError}
+                </p>
+              )}
+              {tailored && (
+                <TailorResultView
+                  result={tailored}
+                  onApply={() => onApplyTailored(tailored, result.postingTitle)}
+                  onSave={() => onSaveTailored(tailored, result.postingTitle)}
+                  onDiscard={() => setTailored(null)}
+                />
               )}
             </div>
           )}

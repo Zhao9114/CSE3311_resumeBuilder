@@ -33,7 +33,8 @@ import { useToast } from '../../components/Toast'
 import { useReducedMotion } from '../../components/useReducedMotion'
 import { blankBlock } from '../../data/seed'
 import { useResume } from '../../store'
-import { SECTION_LABELS, type Resume, type ResumeBlock } from '../../types'
+import { mergeInto } from '../../store/entries'
+import { isRepeatable, SECTION_LABELS, type Resume, type ResumeBlock } from '../../types'
 import DragCard from './DragCard'
 import {
   HIDE_ZONE_ID,
@@ -86,6 +87,18 @@ function incomingBlock(data: IncomingDrag): ResumeBlock {
     case 'proposal':
       return { ...structuredClone(data.block), id: 'incoming' } as ResumeBlock
   }
+}
+
+/**
+ * The list a drop would produce: a new section opens at the slot, while an
+ * entry for a built-in section the resume already has joins that section.
+ */
+function previewWithIncoming(blocks: ResumeBlock[], incoming: ResumeBlock, index: number): ResumeBlock[] {
+  const existing = isRepeatable(incoming.type) ? -1 : blocks.findIndex((b) => b.type === incoming.type)
+  if (existing !== -1) {
+    return blocks.map((b, i) => (i === existing ? { ...mergeInto(b, incoming), enabled: true } : b))
+  }
+  return [...blocks.slice(0, index), incoming, ...blocks.slice(index)]
 }
 
 function incomingLabel(data: IncomingDrag): string {
@@ -306,9 +319,7 @@ export function BuilderDndProvider({ children }: { children: ReactNode }) {
     if (isIncoming(data)) {
       const index = incomingIndexFor(event)
       setIncomingIndex(index)
-      setPreviewBlocks(
-        index === null ? null : [...blocks.slice(0, index), incomingBlock(data), ...blocks.slice(index)],
-      )
+      setPreviewBlocks(index === null ? null : previewWithIncoming(blocks, incomingBlock(data), index))
     }
   }
 
@@ -365,6 +376,10 @@ export function BuilderDndProvider({ children }: { children: ReactNode }) {
       idsBeforeInsert.current = new Set(blocks.map((b) => b.id))
       const label = data.kind === 'new-section' ? SECTION_LABELS[data.sectionType] : data.block.label
       recordUndo(`added ${label}`)
+      // A built-in section the resume already has is joined, not duplicated,
+      // so the drop position only applies to a genuinely new section.
+      const joins =
+        data.kind !== 'new-section' && !isRepeatable(data.block.type) && blocks.some((b) => b.type === data.block.type)
       if (data.kind === 'new-section') {
         void addBlock(data.sectionType, undefined, index)
       } else {
@@ -372,7 +387,10 @@ export function BuilderDndProvider({ children }: { children: ReactNode }) {
         void insertBlock(data.block, index)
         if (data.kind === 'proposal') data.onApplied()
       }
-      toast({ message: `Added ${label} at position ${index + 1}`, action: undoAction })
+      toast({
+        message: joins ? `Added to ${label}` : `Added ${label} at position ${index + 1}`,
+        action: undoAction,
+      })
     }
   }
 

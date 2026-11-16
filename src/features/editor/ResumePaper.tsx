@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { contactParts, displayUrl, toHref, type ContactPart } from '../../lib/links'
 import { GripVertical } from 'lucide-react'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -79,7 +80,17 @@ function SectionBody({ block }: { block: ResumeBlock }) {
           {block.data.items.map((item, i) => (
             <div className="r-item" key={i}>
               <div className="r-item-head">
-                <span className="r-role">{item.name}</span>
+                <span className="r-role">
+                  {item.name}
+                  {item.url && toHref(item.url) && (
+                    <>
+                      {' '}
+                      <a className="r-link r-project-link" href={toHref(item.url)!} target="_blank" rel="noreferrer">
+                        {displayUrl(item.url)}
+                      </a>
+                    </>
+                  )}
+                </span>
               </div>
               <p className="r-detail">{item.detail}</p>
             </div>
@@ -132,6 +143,7 @@ function Section({ block, column, highlight }: SectionProps) {
       ref={setNodeRef}
       className={`r-section${isDragging ? ' is-lifted' : ''}${highlight ? ' is-flash' : ''}`}
       data-block-id={block.id}
+      data-type={block.type}
       style={{
         transform: CSS.Translate.toString(transform),
         transition: reducedMotion ? undefined : transition,
@@ -180,8 +192,7 @@ export default function ResumePaper({ resume, highlightId }: ResumePaperProps) {
   const { profile, blocks, templateId } = resume
   const meta = templateMeta(templateId)
   const visible = blocks.filter((b) => b.enabled)
-  const contact = [profile.email, profile.phone, profile.location, profile.links]
-    .filter(Boolean)
+  const contact = contactParts(profile)
 
   const header = (
     <header className="r-header">
@@ -193,7 +204,7 @@ export default function ResumePaper({ resume, highlightId }: ResumePaperProps) {
               can break the line between parts instead of overflowing. */}
           {contact.map((part, i) => (
             <Fragment key={i}>
-              <span>{part}</span>
+              <span><ContactText part={part} /></span>
               {i < contact.length - 1 ? ' · ' : ''}
             </Fragment>
           ))}
@@ -234,7 +245,7 @@ export default function ResumePaper({ resume, highlightId }: ResumePaperProps) {
               <h2 className="r-section-title">Contact</h2>
               <ul className="r-contact-list">
                 {contact.map((part, i) => (
-                  <li key={i}>{part}</li>
+                  <li key={i}><ContactText part={part} /></li>
                 ))}
               </ul>
             </section>
@@ -248,5 +259,16 @@ export default function ResumePaper({ resume, highlightId }: ResumePaperProps) {
         </div>
       </div>
     </div>
+  )
+}
+
+/** One contact part: a real link when it is an email or a web address. */
+function ContactText({ part }: { part: ContactPart }) {
+  if (!part.href) return <>{part.text}</>
+  const external = !part.href.startsWith('mailto:')
+  return (
+    <a className="r-link" href={part.href} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}>
+      {part.text}
+    </a>
   )
 }

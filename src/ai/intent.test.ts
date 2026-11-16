@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyByRules, extractSkills, RULES_CONFIDENCE_THRESHOLD, type Intent } from './intent'
+import { asksToOpenLink, classifyByRules, extractSkills, RULES_CONFIDENCE_THRESHOLD, type Intent } from './intent'
 
 const sure = (message: string) => {
   const result = classifyByRules(message)
@@ -18,6 +18,9 @@ describe('classifyByRules', () => {
     ['Add Python, Docker and PostgreSQL to my skills', 'add_skills'],
     ['Tailor my resume to this job', 'tailor_to_job'],
     ['How long should my resume be?', 'general_advice'],
+    ['Add my education: B.S. Computer Science, UT Arlington, 2027', 'draft_education'],
+    ['please put my degree on there, BA in Economics from Rice', 'draft_education'],
+    ['Add a project: a Discord bot I built in Python', 'draft_project'],
   ])('routes "%s" to %s without a model call', (message, intent) => {
     expect(sure(message)).toBe(intent)
   })
@@ -62,5 +65,30 @@ describe('extractSkills', () => {
   it('does not match inside other words', () => {
     expect(extractSkills('I like going outside')).not.toContain('Go')
     expect(extractSkills('javascript')).not.toContain('Java')
+  })
+})
+
+describe('education and project questions vs. requests', () => {
+  it('leaves a question about education to the model instead of drafting an entry', () => {
+    const result = classifyByRules('Does my GPA matter for internships?')
+    expect(result.confidence).toBeLessThan(RULES_CONFIDENCE_THRESHOLD)
+  })
+})
+
+describe('asksToOpenLink', () => {
+  it.each([
+    'import my details from my homepage https://jordan.dev',
+    'can you read github.com/jachen and add my projects',
+    'go to www.jordanchen.me and copy my education',
+  ])('spots "%s"', (message) => {
+    expect(asksToOpenLink(message)).toBe(true)
+  })
+
+  it.each([
+    'Add a project: Draftly, a resume builder, github.com/jachen/draftly',
+    'Rewrite my bullets to lead with action verbs',
+    'I worked on Node.js and Vue.js apps',
+  ])('leaves "%s" alone', (message) => {
+    expect(asksToOpenLink(message)).toBe(false)
   })
 })

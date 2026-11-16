@@ -1,6 +1,6 @@
 import type { TokenUsage } from '../ai/model.js'
 
-export type AiRoute = 'ats' | 'assistant'
+export type AiRoute = 'ats' | 'assistant' | 'tailor'
 
 /** `user:<uuid>` for a verified sign-in, `ip:<hash>` otherwise. */
 export interface Identity {

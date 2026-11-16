@@ -44,7 +44,7 @@ async function authHeader(): Promise<Record<string, string>> {
   return token ? { authorization: `Bearer ${token}` } : {}
 }
 
-export async function postAi<T>(path: '/api/ats' | '/api/assistant', body: unknown): Promise<T> {
+export async function postAi<T>(path: '/api/ats' | '/api/assistant' | '/api/tailor', body: unknown): Promise<T> {
   let response: Response
   try {
     response = await fetch(path, {

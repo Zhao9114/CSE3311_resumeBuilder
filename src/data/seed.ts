@@ -3,8 +3,10 @@ import type {
   Resume,
   ResumeBlock,
   ResumeVersion,
+  SavedBlock,
   SectionType,
 } from '../types'
+import { entryName, splitIntoEntries } from '../store/entries.js'
 import { BUILT_IN_SECTION_TYPES, DEFAULT_TEMPLATE, SECTION_LABELS } from '../types/index.js'
 
 export const seedResume: Resume = {
@@ -97,6 +99,7 @@ export const seedResume: Resume = {
         items: [
           {
             name: 'Draftly',
+            url: 'github.com/jachen/draftly',
             detail:
               'Block-based resume editor with drag-and-drop sections and application tracking. React, TypeScript, Supabase.',
           },
@@ -127,6 +130,65 @@ export const seedApplications: Application[] = [
   { id: 'a5', employer: 'Supabase', role: 'Developer Advocate', status: 'Waitlist', versionId: 'v3', appliedAt: '2026-08-02' },
   { id: 'a6', employer: 'Local Startup', role: 'Full-stack (contract)', status: 'Custom', customStatus: 'Take-home sent', versionId: 'v2', appliedAt: '2026-08-22' },
 ]
+
+/**
+ * The demo user's block bank: every entry on the live resume, plus roles,
+ * projects and skill groups that are *not* on it. Those extras are what
+ * "Build tailored resume" can pull in for a posting — a data job picks the
+ * analyst internship, a cloud job the homelab project.
+ */
+const bankExtras: Omit<ResumeBlock, 'id'>[] = [
+  {
+    type: 'experience', label: 'Experience', enabled: true,
+    data: { items: [{ role: 'Data Analyst Intern', org: 'Lone Star Health', dates: 'Summer 2024', points: [
+      'Built Tableau dashboards on SQL and Python (pandas) pipelines that tracked clinic wait times across 12 sites.',
+      'Automated a weekly Excel report with Python, saving the operations team about 5 hours a week.',
+    ] }] },
+  },
+  {
+    type: 'experience', label: 'Experience', enabled: true,
+    data: { items: [{ role: 'Teaching Assistant, Data Structures', org: 'University of Texas at Arlington', dates: 'Fall 2024 – Spring 2025', points: [
+      'Led weekly Java lab sessions for 40 students on trees, graphs and hashing.',
+      'Wrote JUnit autograder tests that cut grading time per assignment by half.',
+    ] }] },
+  },
+  {
+    type: 'experience', label: 'Experience', enabled: true,
+    data: { items: [{ role: 'Mobile Developer Intern', org: 'Pixel Kite Studio', dates: 'Spring 2024', points: [
+      'Shipped two React Native screens for an iOS and Android fitness app with a Firebase back end.',
+      'Fixed crash reports from Sentry, lowering the crash rate from 2.1% to 0.4%.',
+    ] }] },
+  },
+  {
+    type: 'projects', label: 'Projects', enabled: true,
+    data: { items: [{ name: 'Kubernetes Homelab', detail: 'Three-node cluster running Docker services, provisioned with Terraform on AWS and deployed by a GitHub Actions CI/CD pipeline.' }] },
+  },
+  {
+    type: 'projects', label: 'Projects', enabled: true,
+    data: { items: [{ name: 'Review Sentiment Analyzer', detail: 'Python and PyTorch NLP model served through a FastAPI endpoint; 89% accuracy on 50k product reviews.' }] },
+  },
+  {
+    type: 'projects', label: 'Projects', enabled: true,
+    data: { items: [{ name: 'Campus Ride Share', detail: 'React Native app with Firebase auth and the Google Maps API, used by 150 students during a pilot semester.' }] },
+  },
+  { type: 'skills', label: 'Skills', enabled: true, data: { groups: [{ name: 'Cloud & DevOps', items: 'AWS, Kubernetes, Terraform, GitHub Actions, Linux' }] } },
+  { type: 'skills', label: 'Skills', enabled: true, data: { groups: [{ name: 'Data', items: 'pandas, NumPy, PyTorch, Tableau, Excel' }] } },
+  { type: 'skills', label: 'Skills', enabled: true, data: { groups: [{ name: 'Mobile', items: 'React Native, Swift, Firebase' }] } },
+]
+
+export const seedBank: SavedBlock[] = [
+  ...seedResume.blocks.flatMap((b) => {
+    const { id: _id, ...draft } = b
+    return splitIntoEntries(draft)
+  }),
+  ...bankExtras,
+].map((block, i) => ({
+  id: `bank${i + 1}`,
+  name: entryName(block),
+  tags: [block.type],
+  block,
+  savedAt: '2026-11-01T12:00:00.000Z',
+}))
 
 /**
  * The resume a brand-new signed-in user starts with: their own blank

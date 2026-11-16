@@ -23,6 +23,17 @@ export interface AtsResult {
   preferredMissing: string[]
   tips: AtsTip[]
   postingTitle: string
+  /**
+   * What the posting asks for, as the model listed it. "Build tailored
+   * resume" ranks the block bank against these. Missing on sample output and
+   * on results cached before Iteration 4.
+   */
+  keywords?: { required: AtsKeyword[]; preferred: AtsKeyword[] }
+}
+
+export interface AtsKeyword {
+  term: string
+  aliases: string[]
 }
 
 export interface AtsService {

@@ -22,6 +22,8 @@ export type Intent =
   | 'draft_experience'
   | 'rewrite_bullets'
   | 'add_skills'
+  | 'draft_education'
+  | 'draft_project'
   | 'tailor_to_job'
   | 'general_advice'
   | 'off_topic'
@@ -31,6 +33,8 @@ export const INTENTS: Intent[] = [
   'draft_experience',
   'rewrite_bullets',
   'add_skills',
+  'draft_education',
+  'draft_project',
   'tailor_to_job',
   'general_advice',
   'off_topic',
@@ -41,6 +45,8 @@ export const INTENT_LABELS: Record<Intent, string> = {
   draft_experience: 'Draft experience',
   rewrite_bullets: 'Rewrite bullets',
   add_skills: 'Add skills',
+  draft_education: 'Add education',
+  draft_project: 'Add project',
   tailor_to_job: 'Tailor to job',
   general_advice: 'Advice',
   off_topic: 'Off topic',
@@ -52,6 +58,8 @@ export const INTENT_SECTION: Record<Intent, SectionType | null> = {
   draft_experience: 'experience',
   rewrite_bullets: 'experience',
   add_skills: 'skills',
+  draft_education: 'education',
+  draft_project: 'projects',
   tailor_to_job: null,
   general_advice: null,
   off_topic: null,
@@ -98,6 +106,19 @@ const RULES: Record<Exclude<Intent, 'off_topic' | 'general_advice'>, Rule[]> = {
     [/\bskills?\b/, 2],
     [/\b(tech stack|technologies|tools|languages|frameworks)\b/, 1],
   ],
+  // An action word plus the section is what separates "add my B.S. from
+  // UTA" (a change) from "does my GPA matter?" (a question, left to the
+  // model). The noun alone only scores 1.
+  draft_education: [
+    [/\b(add|draft|write|create|put|include|fill|list)\b.*\b(education|degree|school|university|college|gpa|coursework|major)\b/, 2],
+    [/\b(education|degree|university|college|gpa|coursework|graduat\w*)\b/, 1],
+    [/\b(bachelor'?s?|master'?s?|ph\.?d|b\.?s|b\.?a|m\.?s)\b/, 1],
+  ],
+  draft_project: [
+    [/\b(add|draft|write|create|put|include|list)\b.*\bprojects?\b/, 2],
+    [/\bprojects?\b/, 1],
+    [/\b(i (built|made|created|developed)|side project|hackathon|portfolio)\b/, 1],
+  ],
   tailor_to_job: [
     [/\b(tailor|customi[sz]e|target|align)\b/, 2],
     [/\b(job description|job posting|posting|this (job|role|position)|the (job|role|position))\b/, 2],
@@ -115,6 +136,19 @@ const DOMAIN =
  */
 const OFF_TOPIC =
   /\b(poem|joke|recipe|weather|song|lyrics|story|horoscope|homework|translate|stock price)\b|\bignore (all |the |any )?(previous|prior|above)\b|\bsystem prompt\b|\byou are now\b|\bpretend (to be|you are)\b|\bjailbreak\b/
+
+/**
+ * A link plus a request to use it ("import from my homepage x.dev"). The
+ * assistant cannot open web pages, so this gets a fixed reply before any
+ * model call, rather than a model politely failing to.
+ */
+const URL_PATTERN =
+  /\bhttps?:\/\/\S+|\bwww\.\S+|\b[a-z0-9-]+\.(com|io|dev|me|org|net|app|ai|co|edu|page|site)(\/\S*)?(?=$|[\s,;)]|\.(\s|$))/i
+const FETCH_WORDS = /\b(import|read|fetch|open|visit|look at|check out|scrape|pull|grab|copy|go to|browse|from (my|this|the)? ?(site|website|homepage|page|link|url|portfolio|profile))\b/i
+
+export function asksToOpenLink(message: string): boolean {
+  return URL_PATTERN.test(message) && FETCH_WORDS.test(message)
+}
 
 /** Common tools and languages, so add_skills can name them back. */
 const KNOWN_SKILLS = [

@@ -27,6 +27,8 @@ import {
   InMemoryResumeVersionStore,
 } from './memoryStore'
 import * as ops from './resumeOps'
+import { seedBank } from '../data/seed'
+import { entryFingerprint, entryName } from './entries'
 import {
   isSyncStatusSource,
   type ApplicationStore,
@@ -65,7 +67,7 @@ export function StoreProvider({
     () => ({
       resumeStore: resumeStore ?? new InMemoryResumeStore(),
       applicationStore: applicationStore ?? new InMemoryApplicationStore(),
-      blockLibraryStore: blockLibraryStore ?? new InMemoryBlockLibraryStore(),
+      blockLibraryStore: blockLibraryStore ?? new InMemoryBlockLibraryStore(seedBank, 'draftly:demo-bank'),
       versionStore: versionStore ?? new InMemoryResumeVersionStore(),
     }),
     [resumeStore, applicationStore, blockLibraryStore, versionStore],
@@ -298,6 +300,11 @@ export interface UseBlockLibraryResult {
   loading: boolean
   error: string | null
   saveBlock: (draft: SavedBlockDraft) => Promise<void>
+  /**
+   * Saves each entry to the bank, skipping any whose content is already
+   * there. Resolves to how many were actually added.
+   */
+  saveEntries: (entries: Omit<ResumeBlock, 'id'>[]) => Promise<number>
   renameBlock: (id: string, name: string) => Promise<void>
   removeBlock: (id: string) => Promise<void>
 }
@@ -343,6 +350,24 @@ export function useBlockLibrary(): UseBlockLibraryResult {
     }
     return {
       saveBlock: (draft: SavedBlockDraft) => refresh(blockLibraryStore.save(draft)),
+      saveEntries: async (entries: Omit<ResumeBlock, 'id'>[]) => {
+        let added = 0
+        await refresh(
+          (async () => {
+            // Read the bank fresh rather than from state, so two quick
+            // clicks cannot both decide the same entry is missing.
+            const have = new Set((await blockLibraryStore.list()).map((s) => entryFingerprint(s.block)))
+            for (const entry of entries) {
+              const key = entryFingerprint(entry)
+              if (have.has(key)) continue
+              have.add(key)
+              await blockLibraryStore.save({ name: entryName(entry), tags: [entry.type], block: entry })
+              added += 1
+            }
+          })(),
+        )
+        return added
+      },
       renameBlock: (id: string, name: string) =>
         refresh(blockLibraryStore.rename(id, name)),
       removeBlock: (id: string) => refresh(blockLibraryStore.remove(id)),
